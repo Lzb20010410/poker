@@ -15,6 +15,7 @@
  */
 
 import { cryptoRandom, randomInt, type RandomSource } from './engine/random';
+import { truncateByCodePoint } from './profile';
 
 /** 可用字符集，32 个。已剔除易混淆的 I O 0 1 */
 export const PAIRING_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' as const;
@@ -89,6 +90,28 @@ export function parsePairingCode(raw: unknown): string {
   const text = typeof raw === 'string' ? normalizePairingCode(raw) : '';
   if (!isValidPairingCode(text)) throw new InvalidPairingCodeError(text);
   return text;
+}
+
+/**
+ * 输入框专用：把玩家正在敲的任意字符串收敛成「合法的配对码前缀」。
+ *
+ * 和 `parsePairingCode` 的区别是**它不抛错、允许中间态**——玩家敲到第 3 位时
+ * 码还不完整，这时候抛错只会让输入框抖。它做的是三件事：
+ *
+ * 1. 归一化（转大写、去空白）——手机上语音念码，大小写和空格都是噪音
+ * 2. 逐字符过滤，只留字符集里的——`I O 0 1` 直接从输入框里消失，
+ *    玩家会立刻发现自己念错了，而不是提交后才看到报错
+ * 3. 按码点截断到 6 位——粘贴一整段文字进来也只会留下前 6 个合法字符
+ *
+ * 放在 shared 而不是 web：这条规则服务端将来做 HTTP 分享链接解析时也要用，
+ * 而且它是纯函数，放这儿能脱离 jsdom 单测。
+ */
+export function filterPairingInput(raw: string): string {
+  let kept = '';
+  for (const ch of normalizePairingCode(raw)) {
+    if (PAIRING_ALPHABET.includes(ch)) kept += ch;
+  }
+  return truncateByCodePoint(kept, PAIRING_CODE_LENGTH);
 }
 
 /**

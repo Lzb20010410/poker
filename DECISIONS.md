@@ -315,5 +315,70 @@ TASKS.md M0.4 的「做」里写着「vite proxy 配 `/ws`」，目的是让前�
 **影响**
 - `PlayerSlot` schema 定型为 `{ nickname, avatarSeed }`，服务端集成测试已覆盖「脏 seed 被裁剪」「不传 seed 回落 sessionId」「双方看到同一个 seed」。
 - 前端需要一个 `avatarDataUri(seed, size)` 并带 Map 缓存（每次渲染重算 14.7 KB 的 SVG 是浪费），缓存要能被测试清空。
-- 打包体积：DiceBear 两个包进 bundle，vite 生产构建当前 222.80 kB / gzip 69.61 kB，可接受。M4 打磨期若嫌大，可改成按需 `import()`。
-- **坑（实测）**：`@dicebear/notionists` **没有** `notionists` 这个具名导出，运行时只有 `{ create, meta, schema }`。必须写 `import * as notionists from '@dicebear/notionists'`，然后把整个命名空间当 `Style` 传给 `createAvatar`（它恰好满足 `Style<O> = { meta?, schema?, create }`）。两个包都是 CJS，没有 `exports` map。
+- **打包体积（M0.4 完成时实测，`pnpm build`）**：单 chunk `827.80 kB / gzip 263.07 kB`，CSS `7.22 kB / gzip 2.07 kB`。用 esbuild 单独打各个依赖量出来的构成：
+
+  | 依赖 | min | gzip |
+  |---|---|---|
+  | `@dicebear/core` + `@dicebear/notionists` | 371.5 kB | 117.8 kB |
+  | `react` + `react-dom/client` | 217.5 kB | 67.5 kB |
+  | `@colyseus/sdk` | 161.1 kB | 51.0 kB |
+  | `react-router-dom` | 49.3 kB | 17.6 kB |
+  | `gsap`（M0.4 还没用上，量的是空跑） | 69.0 kB | 27.1 kB |
+
+  **DiceBear 一个就占了整包的 45%**，全是 notionists 那些手绘 path 数据。私局 + 局域网场景可以接受（一次性下载、可缓存），但它是 M4 性能打磨时第一个该动的地方，两条路：
+  1. 把 `avatar.ts` 改成按需 `import()`，首屏先画一个占位圆，chunk 到了再换 —— 首屏 gzip 能从 263 kB 掉到 ~145 kB，代价是一次「头像闪一下」。
+  2. 换成几何风格包（`identicon` / `rings` / `shapes`，均 MIT），体积能小一个量级，但人物观感明显不如 notionists。用户要求「人物做好看一点」，所以**默认走 1 不走 2**。
+
+  之所以现在不做：M2/M3 还要加牌面美术、筹码 SVG 和 GSAP 时间线，等资产全貌清楚了再一次性切 chunk 比现在切一次、M3 再切一次便宜。已记进 PROGRESS.md 的遗留问题。
+- **坑（实测）**：`@dicebear/notionists` **没有** `notionists` 这个具名导出，运行时只有 `{ create, meta, schema }`（`createAvatar` 要的正是一个 `Style` 对象，即 `{ meta?, schema?, create }`）。写法是 `import * as notionists from '@dicebear/notionists'`，把整个命名空间直接传给 `createAvatar(notionists, {...})`。
+- **两个包都是纯 ESM**（`"type": "module"` + `"exports": "./lib/index.js"`），node/vitest 与 vite 浏览器构建走同一套解析，不存在 CJS interop 分歧。
+- `createAvatar` 会把风格包的出处与许可证写进每张 SVG 的 **`<metadata>` RDF 块**（`dc:title` / `dc:creator` / `dc:source` / `dcterms:license` / `dc:rights`），等于自带署名——即便有人只截走了 SVG 也还带着出处。notionists 的具体授权是「代码 MIT / 设计 Notionists by Zoish，CC0 1.0」，`web/test/avatar.test.ts` 里有断言盯着这几个字段，换风格时会红。（早先这里写的是「以 XML 注释内嵌」，是照着 `license.xml()` 这个函数名猜的，实测输出里并没有 `<!-- -->`，已更正。）
+- 不要开 `randomizeIds`：我们用 `<img src={dataUri}>` 渲染，每张图是独立文档，本来就不会 ID 冲突；开了反而破坏「同 seed → 逐字节相同」这条可缓存的性质。
+
+---
+
+### D-012 · 断线是三态不是两态：`online / reconnecting / offline`（真浏览器验证逼出来的）
+
+**决定**
+`RoomConnection` 暴露的不是「断了没」这个布尔，而是 `LinkState = 'online' | 'reconnecting' | 'offline'`。
+实现上同时订阅 SDK 的三个信号：`onDrop` → `reconnecting`，`onReconnect` → `online`，`onLeave` → `offline`。
+
+**理由**
+Colyseus SDK 0.18 **默认开启自动重连**（`room.reconnection.enabled === true`，`maxRetries: 15`、`delay: 100ms`、`minDelay: 100`、`maxDelay: 5000`、`backoff = 2^attempt × delay`）。读 `Room.mjs` 的 `connection.events.onclose` 能看到分工：
+
+- close code ∈ {1005 `NO_STATUS_RECEIVED`、1006 `ABNORMAL_CLOSURE`、1001 `GOING_AWAY`、`MAY_TRY_RECONNECT`} → 先 `onDrop.invoke(code, reason)`，再 `handleReconnection()`；
+- 其它 code → 直接 `onLeave.invoke(code, reason)`；
+- 重连成功 → `reconnection.isReconnecting = false` + `onReconnect.invoke()`；
+- 15 次全失败 → `onLeave.invoke(FAILED_TO_RECONNECT, "No more retries. Reconnection failed.")`。
+
+也就是说**掉线的那一刻 `onLeave` 不会响**。整个重试窗口按默认参数算是 200+400+800+1600+3200+5000×10 ≈ **56 秒**，实测吻合（真浏览器里从 `taskkill` 服务端到横幅改口，约 56 s）。
+
+第一版只订了 `onLeave`，后果是：网断了以后将近一分钟里，页面是一张完好无损、只是不再更新的牌桌。玩家不会知道自己掉线了，只会以为其他人都在发呆——在德州扑克里这个误解的代价是「我是不是该 fold」。
+
+还有个 `minUptime: 5000`：进房不到 5 秒就断，SDK 认为「这房间还没站稳，不值得重连」，直接发 `onLeave(1006)`。所以「刚进房就断」和「玩到一半断」走的是两条不同路径，测试要分别覆盖。
+
+**为什么是「如实说出来」而不是「关掉自动重连」**
+自动重连对手机场景是刚需（切 Wi-Fi/4G、进电梯、锁屏）。关掉它换来的是一个更差的失败模式。正确做法是把中间态渲染出来，并且**明说「别刷新」**——刷新会把 SDK 手里的 `reconnectionToken` 一起丢掉，本来能无缝续上的座位就真的没了。
+
+**这个 bug 是怎么被测试漏掉的（比 bug 本身更值得记）**
+`test/fakeClient.ts` 第一版把「掉线」建模成「立刻调 `onUnexpectedLeave`」，于是 `waitingRoom.test.tsx` 里那条 `dropUnexpected(1006) → 断言「连接已断开」` 的测试**全绿**——它断言的还是一个真 SDK 永远不会产生的行为。99 个 web 测试没有一个发现它，是拿真浏览器把服务端进程杀掉之后才暴露的。
+
+教训落成一条规矩：**假实现要照着真依赖的信号分工建模，不是照着「我以为它会怎样」建模。**
+具体做法：假 client 的方法名对齐 SDK 信号名（`dropConnection` / `restoreConnection` / `failReconnection`），并在 `fakeClient.ts` 文件头写清上一版是怎么错的。凡是「mock 一个有生命周期的第三方对象」，先去读它的源码确认信号时序，再动手写假的。
+
+**影响**
+- `net/types.ts`：`DisconnectInfo` / `DisconnectListener` 删除，改为 `LinkState` / `LinkListener`；`RoomConnection.onUnexpectedLeave` → `onLinkChange`（注册即同步推一次 `'online'`，与 `subscribe` 口径一致）。
+- `net/client.ts`：`SdkRoomLike` 增加 `onDrop` / `onReconnect`。三个信号都用**长期订阅**而不是 `.once`——一次连接的生命周期里「掉线 → 重连上 → 又掉线」可能反复发生（手机切网络尤其常见），只监听一次会让第二次掉线彻底静默。`consented` 守卫上提到 `emitLink`：玩家自己点「离开」时 SDK 同样会走一遍 onclose → onDrop/onLeave。
+- `state/RoomContext.tsx`：`disconnected: boolean` → `link: LinkState`。快照回调用**函数式更新保留 `link`**——重连成功后 SDK 会补推一次全量状态，那时 `link` 已被置成 `'online'`，不能被快照回调改写；反过来掉线期间若有缓冲补丁到达，也不能把 `'reconnecting'` 冲掉。
+- `StatusBanner`：四态（failure / offline / reconnecting / connecting），后三个都是 `role="status"`（温和排队播报）；只有 failure 是 `role="alert"`。
+- 刻意**没有**调 `room.reconnection` 的任何参数：默认值对朋友私局是合理的，多一组数字就多一组要解释和维护的东西。
+- 刻意**没有**把 close code 透出到 UI：对「重连失败」和「房间被解散」我们说的是同一句话，区分只会多一个没人消费的字段。
+
+**留给 M1.5 的坑（重要）**
+`reconnection.maxEnqueuedMessages` 默认 **10**：断线期间 `room.send()` 的消息会被缓冲，重连成功后一次性冲出去。等待室里这无害（M0.4 根本不发业务消息），但 M1.5 上了「fold / call / raise」之后就**危险**了——玩家在网络恢复前点的「加注」，可能在三个下注轮之后才被服务端收到。M1.5 必须至少做其中一件：
+
+1. 发消息前检查 `room.reconnection.isReconnecting`，是就拒绝并提示；
+2. `room.reconnection.maxEnqueuedMessages = 0`，让断线期间的 send 直接失败；
+3. 每条动作带上「它属于哪一手牌 / 哪一个下注轮」的序号，服务端发现过期就丢弃。
+
+倾向 **1 + 3**：1 是前端体验，3 是服务端权威的兜底（前端判断永远可以被绕过，而 SPEC 的铁律是服务端说了算）。

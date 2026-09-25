@@ -4,6 +4,7 @@ import { mulberry32, type RandomSource } from '../src/engine/random';
 
 import {
   allocatePairingCode,
+  filterPairingInput,
   InvalidPairingCodeError,
   isValidPairingCode,
   MAX_PAIRING_ATTEMPTS,
@@ -257,5 +258,89 @@ describe('allocatePairingCode', () => {
       seen.add(await allocatePairingCode(async () => false, { rand }));
     }
     expect(seen.size).toBe(100);
+  });
+});
+
+describe('filterPairingInput（输入框实时收敛）', () => {
+  it('小写自动转大写', () => {
+    expect(filterPairingInput('abc234')).toBe('ABC234');
+  });
+
+  it('所有空白都被去掉，包括夹在中间的', () => {
+    expect(filterPairingInput(' AB 3\t4\n5 ')).toBe('AB345');
+  });
+
+  it('易混淆字符 I O 0 1 被直接过滤掉', () => {
+    expect(filterPairingInput('IO01')).toBe('');
+    expect(filterPairingInput('A1B2O3')).toBe('AB23');
+  });
+
+  it('字符集以外的东西（中文、标点、emoji）全被过滤', () => {
+    expect(filterPairingInput('德州-ABC!@#')).toBe('ABC');
+  });
+
+  it('空输入得到空串，不抛错（允许中间态）', () => {
+    expect(filterPairingInput('')).toBe('');
+    expect(filterPairingInput('   ')).toBe('');
+  });
+
+  it('超过 6 位被截断，粘贴一整段也只留前 6 个合法字符', () => {
+    expect(filterPairingInput('ABCDEFGH')).toBe('ABCDEF');
+    expect(filterPairingInput('配对码是 ABCDEFGHIJ 快进来')).toBe('ABCDEF');
+  });
+
+  /**
+   * 顺序断言，也是最容易写错的一条：**必须先过滤再截断**。
+   * 反过来的话 `'IIIIIIABC'` 会先被截成 `'IIIIII'`、再过滤成 `''`，
+   * 玩家明明敲对了码却什么都看不见。
+   */
+  it('先过滤后截断：前面一堆非法字符不会把后面的合法字符挤掉', () => {
+    expect(filterPairingInput('IIIIIIABC')).toBe('ABC');
+    expect(filterPairingInput('0000000000ABCDEF')).toBe('ABCDEF');
+  });
+
+  it('幂等：对结果再过滤一次不会变', () => {
+    for (const raw of ['abc234', '  A B  ', 'IO01XYZ', '德州ABC', '']) {
+      const once = filterPairingInput(raw);
+      expect(filterPairingInput(once)).toBe(once);
+    }
+  });
+
+  /**
+   * 性质测试：不管喂什么进去，出来的一定是「合法配对码的前缀」。
+   * 这条比逐个举例更有价值——输入框会把它直接塞进受控组件的 value，
+   * 一旦漏出非法字符，UI 上就会显示一个玩家敲不出来的码。
+   */
+  it('输出永远是合法配对码的前缀', () => {
+    const nasty = [
+      '',
+      'a',
+      'abcdef',
+      'ABCDEFGHIJKLMN',
+      '0123456789',
+      'ioIO',
+      '  \t\n  ',
+      '德州扑克',
+      '\u0000\u001b[31mABC',
+      '\u202EABC\u202C',
+      '😀🃏ABC',
+      'AbC-dEf_GhI',
+    ];
+    for (const raw of nasty) {
+      const out = filterPairingInput(raw);
+      expect([...out].length).toBeLessThanOrEqual(PAIRING_CODE_LENGTH);
+      for (const ch of out) {
+        expect(PAIRING_ALPHABET).toContain(ch);
+      }
+      // 长度刚好 6 时就该是一个合法码（可以直接提交）
+      if ([...out].length === PAIRING_CODE_LENGTH) {
+        expect(isValidPairingCode(out)).toBe(true);
+      }
+    }
+  });
+
+  it('合法码经过它之后原样不变', () => {
+    const code = generatePairingCode(mulberry32(SEED));
+    expect(filterPairingInput(code)).toBe(code);
   });
 });

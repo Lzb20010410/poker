@@ -1,0 +1,567 @@
+/**
+ * 全局样式。M0.4 只要「能看、能用、手机不破版」，视觉打磨在 M2/M3。
+ *
+ * 三条硬约束（都来自 TASKS.md 的验收项，不是审美偏好）：
+ *
+ * 1. **可点区域 ≥ 48px。** 手机上主要靠拇指操作，按钮和输入框都给足高度。
+ * 2. **横竖屏都不破版。** 用流式布局 + `min()` 限宽，不写任何媒体查询断点以外的固定宽度；
+ *    横屏手机（高度 ~390px）靠 `overflow-y: auto` 滚动，不裁内容。
+ * 3. **刘海屏安全区。** `env(safe-area-inset-*)` + index.html 里的 `viewport-fit=cover`，
+ *    否则底部按钮会被 Home 指示条压住。
+ *
+ * 配色走深色：牌桌类应用几乎都是深色底，一是长时间对局不刺眼，
+ * 二是后面 M2 加牌桌 felt 材质时深色底更容易接。
+ */
+
+:root {
+  --bg: #0d1117;
+  --bg-accent: #10241c;
+  --surface: #161b22;
+  --surface-raised: #1c2330;
+  --border: #2b3441;
+  --text: #e6edf3;
+  --text-muted: #9aa7b4;
+  --primary: #2ea043;
+  --primary-strong: #3fb950;
+  --danger: #f85149;
+  --warn: #d29922;
+  --info: #58a6ff;
+  --radius: 12px;
+  --tap: 48px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--bg-accent) 0%, transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  /* 手机上双击缩放会把布局搞乱，对局类应用一律关掉 */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---------- 外壳 ---------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.app__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 16px 20px;
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-left: calc(20px + env(safe-area-inset-left));
+  padding-right: calc(20px + env(safe-area-inset-right));
+  border-bottom: 1px solid var(--border);
+}
+
+.app__brand {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.app__tagline {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.app__main {
+  flex: 1;
+  width: 100%;
+  /* 窄屏用满宽度，宽屏限到 560px：大厅是表单，太宽反而难读 */
+  max-width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lobby,
+.waiting,
+.table-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------- 卡片 ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card--accent {
+  background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
+  border-color: #33503f;
+}
+
+.card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.card__subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---------- 表单 ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.field__input {
+  min-height: var(--tap);
+  padding: 10px 14px;
+  font-size: 16px; /* 小于 16px 时 iOS Safari 会在聚焦时自动放大页面 */
+  font-family: inherit;
+  color: var(--text);
+  background: #0b0f14;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.field__input:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 1px;
+  border-color: var(--info);
+}
+
+.field__input--code {
+  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+  font-size: 22px;
+  letter-spacing: 0.28em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.field__input--valid {
+  border-color: var(--primary);
+}
+
+.field__counter,
+.field__hint,
+.field__error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.field__error {
+  color: var(--danger);
+}
+
+/* ---------- 身份区 ---------- */
+
+.identity {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.identity__avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.identity__avatar img {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #0b0f14;
+  border: 1px solid var(--border);
+}
+
+.identity__fields {
+  flex: 1;
+  min-width: 0; /* 不设这个的话长昵称会把 flex 容器撑破 */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ---------- 按钮 ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  line-height: 1.2;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text);
+  background: var(--surface-raised);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--info);
+  outline-offset: 2px;
+}
+
+.btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #04150a;
+}
+
+.btn--primary:not(:disabled):hover {
+  background: var(--primary-strong);
+  border-color: var(--primary-strong);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+.btn--ghost:not(:disabled):hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.btn-row > * {
+  flex: 1 1 160px;
+}
+
+/* ---------- 配对码 / 分享 ---------- */
+
+.join-code {
+  margin: 0;
+  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+  font-size: clamp(32px, 12vw, 48px);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-align: center;
+  color: var(--primary-strong);
+  /* 长码在窄屏上不能溢出：允许断行比横向滚动好 */
+  overflow-wrap: anywhere;
+}
+
+.code-inline {
+  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+  letter-spacing: 0.12em;
+  color: var(--primary-strong);
+}
+
+.share {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.share__input {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: #0b0f14;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.share .btn {
+  flex: 0 0 auto;
+}
+
+/* ---------- 玩家列表 ---------- */
+
+.player-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.player-list__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  min-height: 56px;
+  background: #0b0f14;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.player-list__item img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.player-list__item--empty {
+  border-style: dashed;
+  background: transparent;
+  opacity: 0.55;
+}
+
+.player-list__empty-slot {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px dashed var(--border);
+  flex: 0 0 auto;
+}
+
+.player-list__name {
+  font-size: 14px;
+  font-weight: 600;
+  /* 昵称最长 16 个码点，可能是 16 个汉字：必须能省略，否则撑破网格 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.player-list__name--empty {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.player-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.badge--self {
+  background: var(--primary);
+  color: #04150a;
+}
+
+.empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ---------- 横幅 ---------- */
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid;
+  font-size: 14px;
+}
+
+.banner__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.banner__title {
+  font-weight: 650;
+}
+
+.banner__hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.banner__detail {
+  font-size: 12px;
+  font-family: ui-monospace, Consolas, monospace;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.banner__close {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.banner--error {
+  background: rgba(248, 81, 73, 0.1);
+  border-color: rgba(248, 81, 73, 0.5);
+}
+
+.banner--error .banner__title {
+  color: var(--danger);
+}
+
+.banner--warn {
+  background: rgba(210, 153, 34, 0.1);
+  border-color: rgba(210, 153, 34, 0.5);
+}
+
+.banner--warn .banner__title {
+  color: var(--warn);
+}
+
+.banner--info {
+  background: rgba(88, 166, 255, 0.08);
+  border-color: rgba(88, 166, 255, 0.4);
+}
+
+.banner--info .banner__title {
+  color: var(--info);
+}
+
+/* ---------- 渲染兜底 ---------- */
+
+.fatal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+  max-width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.fatal__title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.fatal__hint {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.fatal__detail {
+  padding: 10px 12px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  background: #0b0f14;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 横屏矮屏（例如手机横过来，高度只有 ~390px） ---------- */
+
+@media (max-height: 480px) {
+  .app__header {
+    padding-top: calc(8px + env(safe-area-inset-top));
+    padding-bottom: 8px;
+  }
+
+  .app__main {
+    padding-top: 12px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    gap: 12px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  /* 头像在横屏下占的竖向空间太奢侈，缩一半 */
+  .identity__avatar img {
+    width: 56px;
+    height: 56px;
+  }
+}
