@@ -11,9 +11,9 @@
 | 项 | 值 |
 |---|---|
 | 当前里程碑 | M0 · 骨架 |
-| 下一个任务 | `M0.3 · Colyseus 服务端骨架` |
-| 已完成任务数 | 2 / 24 |
-| 测试状态 | 全绿（63 passed / 3 包；shared 覆盖率 100/100/100/100） |
+| 下一个任务 | `M0.4 · Web 大厅与连接` |
+| 已完成任务数 | 3 / 24 |
+| 测试状态 | 全绿（123 passed / 3 包；shared 覆盖率 100/100/100/100） |
 | 构建状态 | 全绿（`pnpm verify` 退出码 0） |
 | 最后更新 | 2026-09-25 |
 
@@ -24,8 +24,14 @@
 > 已知但没修的问题都记在这里。修复后移到下方「已解决」。
 > 格式：`[严重程度 高/中/低] 问题描述 —— 发现于哪个任务 —— 是否阻塞下一里程碑`
 
-- **[低] server 生产构建（`node dist/index.js`）当前不可用** —— M0.1 —— 不阻塞 M0-M3，**M4.3 必须解决**。
+- **[低] server 生产构建（`node dist/main.js`）当前不可用** —— M0.1 —— 不阻塞 M0-M3，**M4.3 必须解决**。
   原因见 `DECISIONS.md` D-006：shared 包用源码导出模式，dev 走 tsx 没问题，但 server 用 `tsc` 产出的 JS 会在运行时解析到 `.ts` 文件。M4.3 加 tsup 打包即可，不需要返工前面的代码。
+  补充（M0.3）：`packages/server/tsconfig.json` 目前是 `noEmit: true`，`pnpm build` 对 server 实际上只做类型检查、不产出 `dist/`。M4.3 一起处理。
+- **[低] 配对码分配存在 TOCTOU 竞态** —— M0.3 —— 不阻塞。
+  `PokerRoom.onCreate()` 里「查重」和「占用」不是原子操作：两个 `create` 请求同时查同一个码，理论上会都认为它空闲，然后一个把另一个的缓存条目顶掉（Colyseus 不拒绝重复 roomId，见 D-009）。
+  概率量级 ≈ 同时创建房间数 / 10.7 亿，朋友私局下可以忽略。真要根治就上 Redis presence 锁把「查重+占位」做成原子操作，但那是引入外部依赖换极低概率收益，对本项目属于过度设计。**只有将来真的做多进程部署时才需要回头看这条。**
+- **[低] `@colyseus/testing` 的 `boot(server)` 重载写死端口 2568** —— M0.3 —— 不阻塞。
+  它忽略第二个 `port` 参数（`boot` 源码里 `await gameServer.listen(DEFAULT_TEST_PORT)`）。目前只有一个集成测试文件所以没问题；**新增第二个集成测试文件时必须改用 `boot({ rooms, initializeExpress }, port)` 重载**，否则两个文件抢同一个端口。已在 `test/integration.test.ts` 头部注释里写明。
 - **[低] `uuid@8.3.2` 是 deprecated 的间接依赖** —— M0.1 —— 不阻塞。来自 Colyseus 依赖链，非本项目直接引入，无法自行升级。记录备查。
 - **[低] npm 将 `eslint@9.39.5` 标记为 deprecated（10.11.0 可用）** —— M0.1 —— 不阻塞。
   暂未升 10：需先确认 `typescript-eslint@8.70.1` 是否声明支持 eslint 10 的 peer。留到 M4 打磨期统一处理依赖升级。
@@ -66,6 +72,54 @@ _（暂无）_
 **给下一个任务的提示**
 - （踩过的坑、需要注意的地方、和规格里写的不太一样的实际做法）
 ```
+
+---
+
+### M0.3 · Colyseus 服务端骨架 — 2026-09-25
+
+**做了什么**
+- **方案变更（重要，需用户过目）**：SPEC §2.4 原定的 `LobbyRoom` + 配对码↔roomId 映射表**整个砍掉**，改成「配对码就是 roomId」。实测 Colyseus 0.18 允许在 `onCreate()` 内（甚至在 `await` 之后）覆写 `this.roomId`。完整理由与踩坑记录见 `DECISIONS.md` **D-009**，SPEC.md §2.4 / §1.1 与 TASKS.md M0.3 已同步更新。**5 条验收标准一条没减。**
+- `packages/shared/src/profile.ts`：昵称规范化（`sanitizeNickname` / `truncateByCodePoint` / `MAX_NICKNAME_LENGTH=16`）。放 shared 是为了客户端和服务端引用同一套规则，避免"前端限 16 字、后端限 20 字"式漂移。剥控制字符 / 零宽 / BOM / bidi 控制符，**刻意保留 ZWJ**（否则 emoji 组合序列会被拆散），按码点而非 UTF-16 单元截断。
+- `packages/shared/src/index.ts`：补上 `export * from './profile'` 与 `export * from './engine'`（之前 engine 只能深路径导入）。
+- `packages/server/src/pairing.ts`：32 字符字符集（剔除 `I O 0 1`）、6 位码、`generatePairingCode` / `normalizePairingCode` / `isValidPairingCode` / `parsePairingCode` / `allocatePairingCode`（查重+最多 5 次重试）+ 两个自定义错误类。**不认识 Colyseus**，查重判定由调用方以 `CodeTakenChecker` 注入，所以能纯单测。
+- `packages/server/src/schema/PokerRoomState.ts`：builder API（`schema()` + `t.*`），`PokerRoomState { joinCode, players: Map<sessionId, PlayerSlot{nickname}> }`。
+  命名刻意避开 `PlayerView`——shared 将来会有同名领域类型，桥接文件里到处写 import 别名是灾难。
+- `packages/server/src/rooms/PokerRoom.ts`：`onCreate`（maxClients=8 / seatReservationTimeout=60 / autoDispose / 分配配对码 / 覆写 roomId）、`onJoin`（服务端裁剪昵称后写入 schema）、`onLeave`（移除）。`isPairingCodeTaken` 用 `matchMaker.findRoomsByIds` 实现，做成模块级函数而非 static 方法（当值传递会触发 `unbound-method`）。
+- `packages/server/src/routes.ts`：`registerRoutes(app)` → `GET /health`，返回 `{ok, service, uptimeSec}`。
+- `packages/server/src/index.ts` 重写为**无副作用**的工厂与导出层（`createGameServer` / `startServer` / `resolvePort` / `FALLBACK_PORT=2567` / `ROOM_TYPE_POKER='poker'`）；新增 `src/main.ts` 作为唯一有副作用的进程入口。`package.json` 的 `dev`→`tsx watch src/main.ts`、`start`→`node dist/main.js`。
+- 根 `package.json`：`engines.node` 从 `>=20` 提到 `>=22`（Colyseus 0.18 的 engines 要求 `>=22.x`，之前是错的）。
+- `eslint.config.js`：测试文件放宽 `@typescript-eslint/require-await`（stub 的签名必须和被替换的异步接口一致，里面没 await 是刻意的）。src 里这条仍开着，`no-floating-promises` 也仍开着。
+- 测试：新增 `test/pairing.test.ts`（28）、`test/index.test.ts`（6）、`test/integration.test.ts`（11）；删除被 `index.test.ts` 取代的 `test/smoke.test.ts`。
+
+**测试结果**
+- 命令：`pnpm verify`（lint + typecheck + test + build），**退出码 0**
+- 全仓库：**123 passed / 123 total**（shared 77 + server 45 + web 1），7 个 test file 全绿
+- `pnpm test:cov`：shared **statements / branches / functions / lines 全 100%**（`profile.ts` 100/100/100/100）
+- ESLint：零 error 零 warning；架构守卫 5 项全通过（扫到 shared/src 6 个文件、packages 下 21+ 个 ts/tsx）
+- **真实 dev server 手工验证**（不是只跑测试）：`pnpm --filter server dev` 起来后日志打印
+  `[poker-room] 已启动，监听端口 2567；WebSocket ws://localhost:2567，健康检查 http://localhost:2567/health`；
+  `curl /health` → **HTTP 200** `{"ok":true,"service":"poker-room-server","uptimeSec":0}`；
+  `curl /nope` → **HTTP 404**（确认路由没兜底吞掉一切）；`netstat` 确认 `0.0.0.0:2567 LISTENING`。
+
+**验收标准自检**（对应 TASKS.md M0.3）
+- ✅ `pnpm --filter server dev` 能启动，日志显示监听端口 2567 —— 上面 curl + netstat 实测
+- ✅ `GET /health` 返回 200 —— 实测 200，且集成测试里也断言了响应体结构
+- ✅ 单测：配对码生成 10000 次，全部长度 6、字符集全合法、不含 `I O 0 1` —— `pairing.test.ts` 逐字符断言，另加"10000 次覆盖满 32 个字符"防偏移
+- ✅ 单测：配对码碰撞时能重试并返回不同码 —— 用 `stubRandForCodes` 精确控制随机源，断言重试路径与查询次数；另测连续撞 4 次第 5 次成功、全撞抛 `PairingCodesExhaustedError`
+- ✅ 集成测试：两个模拟客户端用同一配对码进入同一 `PokerRoom`，双方都能在 schema 中看到对方昵称 —— 起真实服务端 + 真实 SDK，`joinById(配对码)` 进房，断言双方 `roomId` 相同、昵称集合为 `['Alice','Bob']`；另加第三人进房、玩家离开后消失、脏昵称被服务端裁剪、`joinById` 打错码被拒
+
+**遗留问题**
+- 新增两条低优先级，已登记到上方「遗留问题」章节：配对码分配的 TOCTOU 竞态、`boot(server)` 重载写死端口 2568。
+- 原有 server 生产构建问题补充了一条：server 的 `tsconfig.json` 是 `noEmit: true`，`pnpm build` 对它只做类型检查不产出 `dist/`。M4.3 一起解决。
+
+**给下一个任务的提示（M0.4 · Web 大厅与连接）**
+- **配对码就是 roomId**，所以前端**不需要任何"解析配对码"的 HTTP 调用**。`/t/:code` 里直接 `new Client(wsUrl).joinById(code, { nickname })`。
+- 码打错时 SDK 抛 `MatchMakeError`，`code === 522`、message 形如 `room "ZZZZZZ" not found`。前端要把它翻译成"房间不存在或已解散"，**不要把原始 message 甩给用户**。
+- `joinById` 的 Promise resolve 时**首个 state patch 还没到**，此时读 `room.state.joinCode` 是 `undefined`。必须 `await room.waitForInitialState()` 之后再读。这个坑我在探针里踩过，集成测试现在也依赖它。
+- 昵称输入框：`maxLength` 用 shared 的 `MAX_NICKNAME_LENGTH`（16），提交前调 `sanitizeNickname` 做软提示，但**服务端才是最终裁判**（`PokerRoom.onJoin` 已经会再裁一次）。
+- 集成测试里那套 `ClientRoom` / `ClientPokerState` 结构接口是权宜之计：客户端解码出来的 state 不是服务端 schema 类的实例。M0.4 前端要用真实 SDK 类型时，别再抄这个，直接 `import type { Room } from '@colyseus/sdk'`。
+- web 包的 vite proxy 已配 `/ws` → `localhost:2567`。Colyseus 0.18 的 matchmaking 端点挂在根路径，proxy 要能同时转发 HTTP（`/matchmaking/*`）和 WS 升级，**M0.4 第一件事就是验证这个 proxy 真的能握手成功**，不通就改成让 SDK 直连 `ws://localhost:2567`。
+- `pnpm dev` 会并行起 server + web。server 那边会打印 Colyseus 的 ASCII banner，不是报错。
 
 ---
 

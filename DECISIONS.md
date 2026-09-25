@@ -193,3 +193,51 @@ M0.1 给 shared 包设死了覆盖率门槛：statements / functions / lines 100
 - 确实无法避免时用非空断言 `!`，**但必须在旁边写出它为什么安全**（本次 `shuffle` 的两处 `!` 就是这么处理的：`i < length` 由循环条件保证，`j ∈ [0,i]` 由 `randomInt` 的上下界校验保证）。说不清理由就换写法。
 - 例外：`cryptoRandom` 里 `globalThis.crypto === undefined` 的 throw 保留。它在 Node 20+ 与现代浏览器中确实不可达，但**它是可测的**（`Reflect.deleteProperty(globalThis, 'crypto')` + `finally` 恢复，已在 `test/random.test.ts` 里实测覆盖）。可测的防御分支不算死代码。
 - **`pnpm test` 通过不等于类型正确**：vitest 只转译不做类型检查。本任务里 `buckets[randomInt(...)] += 1` 在 vitest 下全绿，`pnpm typecheck` 才报错。收尾一律跑 `pnpm verify`。
+
+---
+
+### D-009 · 配对码就是 roomId，砍掉 LobbyRoom（对 SPEC §2.4 的偏离）
+
+**日期**：2026-09-25　**任务**：M0.3　**决定者**：AI 自主（**已改动已批准的 SPEC，需要用户过目**）
+
+**背景**
+SPEC.md §2.4 原本写的方案是：单独开一个 `LobbyRoom`，客户端先连它、提交配对码、查到目标 roomId 后再 `joinById`。配对码和 roomId 是两个东西，中间靠一张映射表连接。
+
+**触发点**
+写代码前去实测 Colyseus 0.18 的 API（0.16 → 0.18 破坏性变更很多，网上教程大半是旧的，不能凭记忆写）。`Room.d.ts` 里明确写着：
+
+```
+You may replace `this.roomId` during `onCreate()`.
+Setting the roomId, is restricted in room lifetime except upon room creation.
+```
+
+并且用一个一次性探针脚本实测确认：**即使 `onCreate` 里先 `await` 过一次，之后再赋 `this.roomId` 依然生效**，客户端 `joinById(那个码)` 能正确进房。
+
+**决定**
+`PokerRoom.onCreate()` 里：
+
+1. 生成一个候选配对码
+2. 用 `matchMaker.findRoomsByIds([code])` 查重，被占用就重试（最多 5 次）
+3. `this.roomId = code`
+4. `this.state.joinCode = code`（同步给前端，用来拼分享链接）
+
+`LobbyRoom` 整个删掉。客户端进房只需 `sdk.joinById(配对码, { nickname })`；码不存在时 Colyseus 自己抛 `MatchMakeError code=522 room "..." not found`，前端据此显示"房间不存在或已解散"。
+
+**理由**
+砍掉的东西：一个 LobbyRoom 类、一张配对码→roomId 映射表（以及它的生命周期/清理逻辑）、客户端进房前多的一次 WebSocket 连接与往返、一个 HTTP 解析端点。换来的是 `onCreate` 里 4 行代码和一次 `findRoomsByIds` 查询。
+
+原方案唯一的实质优势是「配对码可以短且可复用」——即同一个码在房间销毁后能立刻再发出去，甚至可以让码和房间解耦（房间重建后老链接仍然有效）。本项目是朋友私局，房间销毁就意味着这局结束了，链接失效是**正确**行为而不是缺陷；码空间 32^6 ≈ 10.7 亿也完全不需要靠复用来省。这个优势对本项目为零。
+
+**影响**
+- TASKS.md M0.3 的「做」里删掉了 LobbyRoom；5 条验收标准一条没少，第 5 条因此变成字面意义上的「两个客户端用同一配对码 `joinById`」。
+- SPEC.md §1.1 的 server 目录树同步更新（新增 `main.ts` / `routes.ts` / `pairing.ts`）。
+- 前端（M0.4）路由 `/t/:code` 直接就是 roomId，不需要任何解析步骤。
+
+**必须一并记住的坑（实测得来，不是推测）**
+1. **Colyseus 不会拒绝重复的 roomId。** 探针实测：用同一个码再 `create` 一次会成功，然后把第一个房间的缓存条目顶掉 —— 结果是两个房间共用一个码、后来的玩家进新房间、先进来的人成了孤儿。所以上面第 2 步的查重**不是可选优化，是唯一的防线**。
+2. `roomId` 只能在 `onCreate` 期间覆写，之后赋值会抛错。别想着在 `onJoin` 里改。
+3. `maxClients` 默认是 `Infinity`，必须显式设成 `DEFAULT_TABLE_CONFIG.maxPlayers`（8）。
+4. `onCreate` / `onJoin` / `onLeave` 在基类里是**可选属性**，配合 `noImplicitOverride` 必须写 `override`，否则编译失败。
+
+**残余风险（已记入 PROGRESS.md 遗留问题）**
+查重和赋值之间是 TOCTOU：两个 `create` 请求同时查重，理论上可能都认为某个码空闲。概率量级 ≈ 同时创建数 / 10.7 亿，私局可忽略。真要根治就上 Redis presence 锁把「查重+占位」做成原子操作，但那会引入一个外部依赖，对这个项目是过度设计。

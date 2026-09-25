@@ -6,8 +6,8 @@
   "description": "Colyseus 服务端 — 只做权威判定与状态同步，不含游戏规则逻辑（规则在 shared/engine）",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit"

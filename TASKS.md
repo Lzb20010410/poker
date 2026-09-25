@@ -36,7 +36,12 @@
 
 ### M0.3 · Colyseus 服务端骨架 `~1h`
 
-**做**：`server` 包，Colyseus 0.18 启动，`LobbyRoom`（配对码 ↔ roomId 映射）+ `PokerRoom`（空壳，仅玩家进出与昵称广播）。配对码生成（6 位，字符集剔除 `I O 0 1`，大小写不敏感，冲突重试最多 5 次）。
+**做**：`server` 包，Colyseus 0.18 启动，`PokerRoom`（空壳，仅玩家进出与昵称广播）。配对码生成（6 位，字符集剔除 `I O 0 1`，大小写不敏感，冲突重试最多 5 次）。
+
+> **方案修订（2026-09-25，M0.3 实施时）**：原计划还要一个 `LobbyRoom` 维护「配对码 ↔ roomId」映射。
+> 实测 Colyseus 0.18 允许在 `onCreate()` 内覆写 `this.roomId`（`await` 之后也可以），
+> 所以改成**配对码就是 roomId**，`LobbyRoom` 整个砍掉。详见 DECISIONS.md D-009 与 SPEC.md §2.4。
+> 下面的验收标准一条没少，第 5 条因此变成字面意义上的 `joinById(配对码)`。
 
 **验收**
 - [ ] `pnpm --filter server dev` 能启动，日志显示监听端口 2567

@@ -101,6 +101,10 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
+      // 测试替身（stub / fake）常常写成 `async () => value`，里面没有 await 是刻意的：
+      // 它的签名必须和被替换的异步接口一致。这条在 src 里仍然开着，真正有价值的
+      // no-floating-promises 也仍然开着，所以放宽的只是噪音。
+      '@typescript-eslint/require-await': 'off',
       'no-restricted-properties': 'off',
       'no-restricted-imports': 'off',
     },

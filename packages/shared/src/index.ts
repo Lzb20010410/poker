@@ -13,3 +13,5 @@ export const PACKAGE_NAME = '@poker-room/shared' as const;
 export const PACKAGE_VERSION = '0.1.0' as const;
 
 export * from './types';
+export * from './profile';
+export * from './engine';

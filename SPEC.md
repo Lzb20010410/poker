@@ -27,11 +27,14 @@ packages/
       random.ts           可注入随机源
     test/                 vitest
   server/                 Colyseus
-    src/index.ts          服务器启动
+    src/index.ts          工厂与导出（无副作用，测试可安全 import）
+    src/main.ts           进程入口（唯一有副作用的文件：listen）
+    src/routes.ts         HTTP 路由（/health）
+    src/pairing.ts        配对码生成 / 归一化 / 校验 / 查重分配
     src/rooms/PokerRoom.ts 房间生命周期、动作路由、超时、重连
-    src/schema/           Colyseus @type 同步结构
+    src/schema/           Colyseus schema 同步结构（builder API）
     src/engine-bridge.ts  把 shared/engine 的状态映射成 schema
-    test/                 集成测试（模拟客户端）
+    test/                 单测 + 集成测试（模拟客户端）
   web/                    React + Vite
     src/main.tsx
     src/net/              Colyseus client 封装、连接/重连
@@ -128,7 +131,15 @@ type ErrorCode =
 - 6 位，字符集 `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`（**剔除 I/O/0/1**）
 - 大小写不敏感，输入时自动转大写
 - 生成后查重，冲突则重生成（最多 5 次）
-- Colyseus 用 `matchmaking.createRoom('poker', { joinCode })` + `lobby` 房间做配对码→roomId 映射，或用 `filterBy(['joinCode'])` + `joinOrCreate`。**推荐方案**：单独开一个 `LobbyRoom`，客户端先连它、提交配对码、拿到目标 roomId 再 `joinById`。这样配对码可以短且可复用。
+- **实现方案（M0.3 实测后改定，见 DECISIONS.md D-009）：配对码就是 Colyseus 的 `roomId`。**
+  `PokerRoom.onCreate()` 里先用 `matchMaker.findRoomsByIds([code])` 查重，拿到一个没被占用的码后
+  直接 `this.roomId = code`（0.18 允许在 `onCreate` 内、甚至在 `await` 之后覆写）。
+  客户端进房只需 `sdk.joinById(配对码)`，码不存在时 Colyseus 自己返回
+  `MatchMakeError code=522 room "..." not found`，前端据此提示"房间不存在或已解散"。
+  原方案的 `LobbyRoom` + 配对码→roomId 映射表 + 额外一跳 WebSocket + HTTP 解析端点**全部不需要**。
+- 代价：配对码在房间存活期间不可复用，房间销毁即释放。私局场景下 32^6 ≈ 10.7 亿的码空间足够。
+- 已知残余风险（TOCTOU）：两个 `create` 请求同时查重，可能都认为某个码空闲。
+  概率量级 ≈ 同时创建数 / 10.7 亿，私局可忽略。真要根治就上 Redis presence 锁，见 PROGRESS.md 遗留问题。
 
 ### 2.5 房间生命周期
 

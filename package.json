@@ -5,7 +5,7 @@
   "type": "module",
   "description": "私局德州扑克 — 朋友局用途，非商业运营，不涉及任何真实价值交换",
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22.0.0",
     "pnpm": ">=9.0.0"
   },
   "scripts": {
