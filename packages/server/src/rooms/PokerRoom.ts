@@ -1,7 +1,7 @@
 /**
  * PokerRoom —— 一张牌桌的房间。
  *
- * M0.3 阶段只是个空壳：玩家能进来、能看到彼此的昵称、离开时能被移除。
+ * M0.3/M0.4 阶段只是个空壳：玩家能进来、能看到彼此的昵称与头像、离开时能被移除。
  * 真正的牌局状态机在 shared/engine，M1.4 才会接上。
  *
  * ## 配对码就是 roomId（DECISIONS.md D-009）
@@ -21,15 +21,20 @@
  * 本文件目前没有任何牌面信息，但这条规矩从第一行代码就要立住。
  */
 
-import { DEFAULT_TABLE_CONFIG, sanitizeNickname } from '@poker-room/shared';
+import {
+  allocatePairingCode,
+  DEFAULT_TABLE_CONFIG,
+  sanitizeAvatarSeed,
+  sanitizeNickname,
+} from '@poker-room/shared';
 import { matchMaker, Room, type Client } from 'colyseus';
 
-import { allocatePairingCode } from '../pairing';
 import { PlayerSlot, PokerRoomState } from '../schema/PokerRoomState';
 
 /** 玩家进房时可以带的参数。值一律当作不可信输入处理 */
 export interface PokerRoomOptions {
   readonly nickname?: unknown;
+  readonly avatarSeed?: unknown;
 }
 
 /** 座位预定时长（秒）。玩家拿到配对码后去点链接，60 秒足够 */
@@ -77,6 +82,8 @@ export class PokerRoom extends Room<{ state: PokerRoomState }> {
         // 服务端做最终裁剪，绝不直接把客户端传来的字符串写进 state。
         // 拿不到昵称时用 sessionId 后 4 位兜底，保证同一房间里昵称不重复。
         nickname: sanitizeNickname(options?.nickname, `玩家${client.sessionId.slice(-4)}`),
+        // 头像 seed 同样由服务端裁剪；兜底直接用 sessionId（本身就是字母数字且唯一）
+        avatarSeed: sanitizeAvatarSeed(options?.avatarSeed, client.sessionId),
       }),
     );
   }

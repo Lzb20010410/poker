@@ -26,6 +26,14 @@ import { schema, t } from '@colyseus/schema';
 export const PlayerSlot = schema(
   {
     nickname: t.string(),
+    /**
+     * 头像 seed，不是头像本身。
+     *
+     * 同步 seed 而不是 SVG：一个 DiceBear 头像的 data URI 约 15 KB，
+     * 8 个人就是 120 KB 塞进每次全量同步；seed 只有十几个字符，
+     * 各端用同一个 seed 本地算出一模一样的图。**永远不要往 schema 里塞图片。**
+     */
+    avatarSeed: t.string(),
   },
   'PlayerSlot',
 );

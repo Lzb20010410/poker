@@ -18,6 +18,8 @@ packages/
   shared/                 纯逻辑，零 IO，零框架依赖
     src/types.ts          领域类型（Card, PlayerView, TableView, TableConfig, Action...）
     src/protocol.ts       C/S 消息定义
+    src/pairing.ts        配对码生成 / 归一化 / 校验 / 查重分配（server 与 web 都要用，故放 shared）
+    src/profile.ts        昵称 / 头像 seed 清洗（服务端权威的最后一道裁剪）
     src/engine/
       deck.ts             洗牌、发牌
       evaluator.ts        包 pokersolver，HandResult / compare
@@ -30,7 +32,6 @@ packages/
     src/index.ts          工厂与导出（无副作用，测试可安全 import）
     src/main.ts           进程入口（唯一有副作用的文件：listen）
     src/routes.ts         HTTP 路由（/health）
-    src/pairing.ts        配对码生成 / 归一化 / 校验 / 查重分配
     src/rooms/PokerRoom.ts 房间生命周期、动作路由、超时、重连
     src/schema/           Colyseus schema 同步结构（builder API）
     src/engine-bridge.ts  把 shared/engine 的状态映射成 schema

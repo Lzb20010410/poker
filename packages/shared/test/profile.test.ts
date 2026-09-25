@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { MAX_NICKNAME_LENGTH, sanitizeNickname, truncateByCodePoint } from '../src/profile';
+import {
+  MAX_AVATAR_SEED_LENGTH,
+  MAX_NICKNAME_LENGTH,
+  sanitizeAvatarSeed,
+  sanitizeNickname,
+  truncateByCodePoint,
+} from '../src/profile';
 
 describe('sanitizeNickname', () => {
   it('普通昵称原样通过', () => {
@@ -104,5 +110,47 @@ describe('truncateByCodePoint', () => {
 
   it('空串安全', () => {
     expect(truncateByCodePoint('', 5)).toBe('');
+  });
+});
+
+describe('sanitizeAvatarSeed', () => {
+  it('字母数字原样通过', () => {
+    expect(sanitizeAvatarSeed('AbC123', 'X')).toBe('AbC123');
+  });
+
+  it('剥掉所有非字母数字字符（seed 会进 SVG data URI 和 localStorage）', () => {
+    expect(sanitizeAvatarSeed('a b', 'X')).toBe('ab');
+    expect(sanitizeAvatarSeed('a"b<c>', 'X')).toBe('abc');
+    expect(sanitizeAvatarSeed('a/b?c=d&e', 'X')).toBe('abcde');
+    expect(sanitizeAvatarSeed('林之博', 'X')).toBe('X'); // 中文全被剥掉，回落到 fallback
+    expect(sanitizeAvatarSeed('😀', 'X')).toBe('X');
+    expect(sanitizeAvatarSeed('\u0000\u001B[31m', 'X')).toBe('31m');
+  });
+
+  it('超过 24 位截断', () => {
+    expect(sanitizeAvatarSeed('A'.repeat(60), 'X')).toBe('A'.repeat(MAX_AVATAR_SEED_LENGTH));
+    expect(sanitizeAvatarSeed('A'.repeat(60), 'X')).toHaveLength(MAX_AVATAR_SEED_LENGTH);
+  });
+
+  it('非字符串非数字输入回落到 fallback（服务端永远不能信任客户端）', () => {
+    for (const bad of [undefined, null, { seed: 'abc' }, ['abc'], true]) {
+      expect(sanitizeAvatarSeed(bad, 'fallback9')).toBe('fallback9');
+    }
+  });
+
+  it('数字被接受并转成字符串', () => {
+    expect(sanitizeAvatarSeed(2026, 'X')).toBe('2026');
+    expect(sanitizeAvatarSeed(0, 'X')).toBe('0');
+  });
+
+  it('fallback 本身也会被清洗和截断', () => {
+    expect(sanitizeAvatarSeed('', '  a-b c  ')).toBe('abc');
+    expect(sanitizeAvatarSeed('', 'Z'.repeat(60))).toBe('Z'.repeat(MAX_AVATAR_SEED_LENGTH));
+  });
+
+  it('fallback 也清洗不干净时兜底为 player，永不返回空串', () => {
+    expect(sanitizeAvatarSeed('', '')).toBe('player');
+    expect(sanitizeAvatarSeed(null, '---')).toBe('player');
+    expect(sanitizeAvatarSeed('😀', '🎲')).toBe('player');
   });
 });

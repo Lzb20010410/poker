@@ -5,6 +5,9 @@
  * （前端限 16 字、后端限 20 字这种）。**前端做软提示，服务端做最终裁剪**，
  * 但两者必须引用同一个常量与同一个函数。
  *
+ * 本文件管两样东西：`sanitizeNickname`（展示用）与 `sanitizeAvatarSeed`
+ * （头像生成用的确定性种子）。两者的原则相同：永不抛错、永不返回空串。
+ *
  * 安全考量（不是洁癖，是真实攻击面）：
  * - 剥掉 C0/C1 控制字符：否则昵称里能塞终端转义序列，污染服务端日志
  * - 剥掉零宽字符与 BOM：否则两个"看起来一样"的昵称其实不同，玩家会认错人
@@ -84,4 +87,33 @@ export function truncateByCodePoint(text: string, maxCodePoints: number): string
   const points = [...text];
   if (points.length <= maxCodePoints) return text;
   return points.slice(0, maxCodePoints).join('');
+}
+
+/**
+ * 头像 seed 的最大长度。
+ *
+ * seed 会通过 schema 广播给房间里所有人，再由各端本地生成 SVG。
+ * 限长是为了不让某个人塞一段几 KB 的字符串进 state、拖累每一次增量同步。
+ */
+export const MAX_AVATAR_SEED_LENGTH = 24;
+
+/**
+ * 把任意输入规范化成可安全用作头像 seed 的字符串。
+ *
+ * 只保留 `[A-Za-z0-9]`：seed 最终会出现在 SVG data URI 和 localStorage 里，
+ * 允许引号、尖括号、空白只会制造转义问题，对"确定性生成一个头像"没有任何好处。
+ *
+ * 和 `sanitizeNickname` 一样永不返回空串、永不抛错。
+ */
+export function sanitizeAvatarSeed(raw: unknown, fallback: string): string {
+  const cleaned = cleanSeed(raw);
+  if (cleaned.length > 0) return cleaned;
+  const cleanedFallback = cleanSeed(fallback);
+  return cleanedFallback.length > 0 ? cleanedFallback : 'player';
+}
+
+function cleanSeed(value: unknown): string {
+  if (typeof value !== 'string' && typeof value !== 'number') return '';
+  const kept = String(value).replace(/[^A-Za-z0-9]/g, '');
+  return truncateByCodePoint(kept, MAX_AVATAR_SEED_LENGTH);
 }

@@ -14,7 +14,7 @@
  * 生日碰撞概率可以忽略。再长就要在手机上多敲字符，得不偿失。
  */
 
-import { cryptoRandom, randomInt, type RandomSource } from '@poker-room/shared';
+import { cryptoRandom, randomInt, type RandomSource } from './engine/random';
 
 /** 可用字符集，32 个。已剔除易混淆的 I O 0 1 */
 export const PAIRING_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' as const;

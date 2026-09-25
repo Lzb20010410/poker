@@ -241,3 +241,79 @@ Setting the roomId, is restricted in room lifetime except upon room creation.
 
 **残余风险（已记入 PROGRESS.md 遗留问题）**
 查重和赋值之间是 TOCTOU：两个 `create` 请求同时查重，理论上可能都认为某个码空闲。概率量级 ≈ 同时创建数 / 10.7 亿，私局可忽略。真要根治就上 Redis presence 锁把「查重+占位」做成原子操作，但那会引入一个外部依赖，对这个项目是过度设计。
+
+---
+
+### D-010 · 前端直连 Colyseus origin，放弃 vite `/ws` 代理（对 TASKS.md M0.4 的偏离）
+
+**日期**：2026-09-25　**任务**：M0.4　**决定者**：AI 自主（**已改动已批准的任务书，需要用户过目**）
+
+**背景**
+TASKS.md M0.4 的「做」里写着「vite proxy 配 `/ws`」，目的是让前端同源访问、绕开跨域。`packages/web/vite.config.ts` 里已经按这句话配好了。
+
+**触发点**
+动手写 client 封装前，用真实 HTTP 打了一遍 Colyseus 0.18 的配对流程，拿到两个硬事实：
+
+1. `@colyseus/sdk` 的连接不是一个固定的 WS 路径。它先 `POST /matchmake/{method}/{roomName}` 拿到 `{ roomId, processId, name, sessionId }`，再往 `ws://host:port/{processId}/{roomId}?...` 开 WebSocket。`processId` 是随机的根级路径段。
+2. **路径前缀代理盖不住随机的根级路径段。** 要代理就得写 `rewrite` 把 `/{processId}/{roomId}` 猜出来，或者代理整个根 —— 后者会把 vite 自己的 HMR、静态资源、`/health` 全吞掉。这条路实测走不通，不是"麻烦"，是结构上不成立。
+
+同时实测了 Colyseus 的 CORS：响应里 `Access-Control-Allow-Origin` 原样回显请求的 `Origin`，带 `Access-Control-Allow-Credentials: true`，预检 `OPTIONS` 返回 204。**即它本来就允许跨域**，代理解决的问题在 Colyseus 这边根本不存在。
+
+**决定**
+删掉 vite 的 `/ws` 代理。前端 SDK 直连 Colyseus 的 origin，按下面的优先级解析（`packages/web/src/net/serverUrl.ts`）：
+
+1. `import.meta.env.VITE_SERVER_URL` 有值 → 用它（部署到线上、或本地想连远端时的开关）
+2. 否则 DEV 模式 → `${location.protocol}//${location.hostname}:2567`
+3. 否则（生产同源部署）→ `location.origin`
+
+第 2 条用 `location.hostname` 而不是 `localhost`，是为了让「手机连同局域网」这个验收项直接成立：vite 已经开了 `host: true`，server 绑的是 `0.0.0.0:2567`，手机访问 `http://<电脑IP>:5173` 时 hostname 就是那个 IP，拼出来的 `http://<电脑IP>:2567` 正好是同一个局域网地址。写成 `localhost` 的话手机端会去连手机自己。
+
+**理由**
+代理方案要付出的代价：一段脆弱的 `rewrite` 正则、一个「dev 走代理 / prod 走直连」的双路径分歧（分歧就意味着 dev 测不到真实的生产路径）、以及 HMR 被吞的风险。直连方案的代价只有一个：Colyseus 端口要对浏览器可达。而它本来就可达（`0.0.0.0:2567`），且 Colyseus 默认 CORS 放行。
+
+顺带一个额外好处：dev 和 prod 走的是**同一条代码路径**（都是跨 origin 直连），验收时测的就是上线后跑的那条。
+
+**影响**
+- `packages/web/vite.config.ts` 的 `server.proxy` 整块删除，并留下注释说明为什么不能加回来（否则下一个人会照直觉再配上）。
+- TASKS.md M0.4 的「做」里「vite proxy 配 `/ws`」这一句作废；6 条验收标准一条没少。
+- 生产部署（M4.3）时前后端不同源是常态，`VITE_SERVER_URL` 这个开关本来就是必需的，等于提前把部署要做的事做了。
+- **残余风险**：如果将来把 Colyseus 放到反向代理后面（例如 nginx 统一域名 + WSS 终结），那时才真的同源，`location.origin` 分支会自然生效，无需改代码。
+
+---
+
+### D-011 · 头像用 DiceBear 本地生成，schema 里只同步 seed 不同步图片
+
+**日期**：2026-09-25　**任务**：M0.4　**决定者**：AI 自主
+
+**背景**
+用户要求「人物、牌桌背景等都做的好看一点」。M0.4 的大厅需要每个玩家有个头像。项目定位是朋友私局 + 作品集，没有账号系统、没有上传服务、没有对象存储。
+
+**选项**
+- A：让用户上传/选一张图片，存到服务端 — 需要上传端点、存储、体积校验、内容审核。私局项目里这一整套是纯负债。
+- B：内置一小组固定头像图片，用户挑一张 — 8 个人可能撞同一张；素材版权要自己逐个确认。
+- C：DiceBear 按 seed 本地生成 SVG，seed 由用户/系统产生，**只把 seed 同步出去**，各端本地渲染。
+
+**决定**
+选 C。具体做法：
+
+- 依赖 `@dicebear/core@^9.4.3` + `@dicebear/notionists@^9.4.2`（npm 自托管，**绝不走 `api.dicebear.com`**：那会把玩家 seed 发给第三方，而且是可用性单点）。
+- `createAvatar(notionists, { seed, size, radius }).toDataUri()` → `data:image/svg+xml;utf8,...`，同一个 seed 永远得到同一张图（已实测确认确定性 + seed 敏感性）。
+- Colyseus schema 里 `PlayerSlot` 的字段是 `avatarSeed: t.string()`，**不是图片**。
+- seed 也过服务端清洗：`sanitizeAvatarSeed(raw, fallback)` 只保留 `[A-Za-z0-9]`、按码点截断到 24，没传时回落到 sessionId。清洗的目的不是防 XSS（seed 只进 DiceBear 不进 DOM innerHTML），而是**防止有人用一个畸形 seed 把别人的渲染搞崩**，以及保证 seed 长度可控。
+
+**理由**
+同步 seed 而不是 SVG 是这条决定的核心。一个 DiceBear data URI 实测约 14.7 KB，8 个人就是 ~118 KB —— 这些会进 Colyseus 的全量同步与 diff 基线，每次有人进出房都要重新推一遍，而房间状态里 99% 的字段变化跟头像毫无关系。seed 只有十几个字符，成本约千分之一，且各端算出来的图**逐字节相同**（DiceBear 是纯函数）。
+
+「把重活推到客户端、网络上只传能重建它的最小信息」——这条原则在 M1 会更重要（底牌、动画事件都是同一类问题），所以在第一个遇到的地方就立规矩。
+
+**许可证（用户会亲自核对，故在此登记）**
+- `@dicebear/core`：MIT。
+- `@dicebear/notionists`：MIT。DiceBear 的设计资产按风格包分别授权，**MIT 的风格包才是干净的**。
+- **禁用名单**：`@dicebear/avataaars`、`@dicebear/bottts` —— 这两个包里写的是 "See LICENSE file"，授权链不清晰，不用。
+- **需署名**：`@dicebear/personas` —— MIT **且** CC-BY-4.0，用了就必须在 README 署名。当前未使用；若将来想换风格，优先 `@dicebear/lorelei` / `@dicebear/identicon` / `@dicebear/rings` / `@dicebear/shapes`（均 MIT）。
+
+**影响**
+- `PlayerSlot` schema 定型为 `{ nickname, avatarSeed }`，服务端集成测试已覆盖「脏 seed 被裁剪」「不传 seed 回落 sessionId」「双方看到同一个 seed」。
+- 前端需要一个 `avatarDataUri(seed, size)` 并带 Map 缓存（每次渲染重算 14.7 KB 的 SVG 是浪费），缓存要能被测试清空。
+- 打包体积：DiceBear 两个包进 bundle，vite 生产构建当前 222.80 kB / gzip 69.61 kB，可接受。M4 打磨期若嫌大，可改成按需 `import()`。
+- **坑（实测）**：`@dicebear/notionists` **没有** `notionists` 这个具名导出，运行时只有 `{ create, meta, schema }`。必须写 `import * as notionists from '@dicebear/notionists'`，然后把整个命名空间当 `Style` 传给 `createAvatar`（它恰好满足 `Style<O> = { meta?, schema?, create }`）。两个包都是 CJS，没有 `exports` map。

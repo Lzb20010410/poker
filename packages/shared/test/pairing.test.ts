@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mulberry32, type RandomSource } from '@poker-room/shared';
+import { mulberry32, type RandomSource } from '../src/engine/random';
 
 import {
   allocatePairingCode,

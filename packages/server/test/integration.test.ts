@@ -15,20 +15,21 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { boot, type ColyseusTestServer } from '@colyseus/testing';
+import { isValidPairingCode, PAIRING_CODE_LENGTH, sanitizeAvatarSeed } from '@poker-room/shared';
 
-import { createGameServer, isValidPairingCode, PAIRING_CODE_LENGTH } from '../src/index';
+import { createGameServer } from '../src/index';
 import type { HealthResponse } from '../src/routes';
 
 const TEST_PORT = 2568;
 const HTTP_BASE = `http://127.0.0.1:${TEST_PORT}`;
 
 /**
- * 客户端解码出来的 state 不是服务端 `PokerState` 的实例，只是结构相同
+ * 客户端解码出来的 state 不是服务端 `PokerRoomState` 的实例，只是结构相同
  * （客户端用反射现场造类）。这里按结构声明，避免把服务端的类硬 `as` 过去。
  */
 interface ClientPokerState {
   joinCode: string;
-  players: { values(): Iterable<{ nickname: string }> };
+  players: { values(): Iterable<{ nickname: string; avatarSeed: string }> };
 }
 
 /** SDK Room 里我们用到的那一小截。写死结构比去追 SDK 的深层泛型划算 */
@@ -56,9 +57,13 @@ function nicknames(room: ClientRoom): string[] {
   return [...room.state.players.values()].map((p) => p.nickname).sort();
 }
 
+function slots(room: ClientRoom): Array<{ nickname: string; avatarSeed: string }> {
+  return [...room.state.players.values()];
+}
+
 /** 创建一个房间并连上第一个客户端 */
-async function createRoom(nickname: string): Promise<ClientRoom> {
-  const room = (await ts.sdk.create('poker', { nickname })) as unknown as ClientRoom;
+async function createRoom(nickname: string, avatarSeed?: string): Promise<ClientRoom> {
+  const room = (await ts.sdk.create('poker', { nickname, avatarSeed })) as unknown as ClientRoom;
   await room.waitForInitialState();
   return room;
 }
@@ -181,6 +186,42 @@ describe('服务端权威：昵称由服务端裁剪', () => {
     const name = names[0]!;
     expect(name).toMatch(/^玩家.{4}$/);
     expect(room.sessionId.endsWith(name.slice(-4))).toBe(true);
+    await room.leave();
+  });
+});
+
+describe('头像 seed 同步（M0.4 大厅要显示头像）', () => {
+  it('同步的是 seed 而不是图片，双方看到的 seed 一致', async () => {
+    const alice = await createRoom('Alice', 'aliceSeed1');
+    const bob = (await ts.sdk.joinById(alice.roomId, {
+      nickname: 'Bob',
+      avatarSeed: 'bobSeed2',
+    })) as unknown as ClientRoom;
+    await bob.waitForInitialState();
+    await waitFor(() => slots(alice).length === 2, 'Alice 看到 Bob');
+
+    for (const view of [alice, bob]) {
+      const byName = new Map(slots(view).map((s) => [s.nickname, s.avatarSeed]));
+      expect(byName.get('Alice')).toBe('aliceSeed1');
+      expect(byName.get('Bob')).toBe('bobSeed2');
+    }
+
+    await Promise.all([alice.leave(), bob.leave()]);
+  });
+
+  it('客户端传来的脏 seed 被服务端裁剪', async () => {
+    const room = await createRoom('Alice', '  a"b<c>  ');
+    expect(slots(room)[0]!.avatarSeed).toBe('abc');
+    await room.leave();
+  });
+
+  it('没传 seed 时回落到 sessionId，保证同房间不撞头像', async () => {
+    const room = await createRoom('Alice');
+    const slot = slots(room)[0]!;
+    expect(slot.avatarSeed).toMatch(/^[A-Za-z0-9]+$/);
+    // 回落值也要过一遍清洗，而 Colyseus 的 sessionId 形如 `2Jzi8NG-n`（带连字符），
+    // 所以这里不能断言「sessionId 包含 seed」，只能断言「seed 等于清洗后的 sessionId」。
+    expect(slot.avatarSeed).toBe(sanitizeAvatarSeed(room.sessionId, 'unused'));
     await room.leave();
   });
 });

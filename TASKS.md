@@ -44,15 +44,21 @@
 > 下面的验收标准一条没少，第 5 条因此变成字面意义上的 `joinById(配对码)`。
 
 **验收**
-- [ ] `pnpm --filter server dev` 能启动，日志显示监听端口 2567
-- [ ] `GET /health` 返回 200
-- [ ] 单测：配对码生成 10000 次，全部长度 6、字符集全合法、不含 `I O 0 1`
-- [ ] 单测：配对码碰撞时能重试并返回不同码
-- [ ] 集成测试：两个模拟客户端用同一配对码进入同一 `PokerRoom`，双方都能在 schema 中看到对方的昵称
+- [x] `pnpm --filter server dev` 能启动，日志显示监听端口 2567
+- [x] `GET /health` 返回 200
+- [x] 单测：配对码生成 10000 次，全部长度 6、字符集全合法、不含 `I O 0 1`
+- [x] 单测：配对码碰撞时能重试并返回不同码
+- [x] 集成测试：两个模拟客户端用同一配对码进入同一 `PokerRoom`，双方都能在 schema 中看到对方的昵称
 
 ### M0.4 · Web 大厅与连接 `~1h`
 
-**做**：`web` 包，Vite + React，路由（`/`、`/r/:code`、`/t/:code`），大厅页（昵称输入 + DiceBear 头像选择 + 创建房间按钮 + 配对码输入框），Colyseus client 封装（连接、断线提示、错误处理），vite proxy 配 `/ws`。房间等待页显示已进入玩家列表。
+**做**：`web` 包，Vite + React，路由（`/`、`/r/:code`、`/t/:code`），大厅页（昵称输入 + DiceBear 头像选择 + 创建房间按钮 + 配对码输入框），Colyseus client 封装（连接、断线提示、错误处理）。房间等待页显示已进入玩家列表。
+
+> **方案修订（2026-09-25，M0.4 实施时）**：原计划「vite proxy 配 `/ws`」作废。
+> 实测 Colyseus SDK 先 `POST /matchmake/{method}/{roomName}`，再往 `ws://host/{processId}/{roomId}` 开连接，
+> `processId` 是随机的**根级**路径段，路径前缀代理在结构上盖不住它；而 Colyseus 本来就默认放行跨域。
+> 改成前端直连 Colyseus origin（DEV 下用 `${location.protocol}//${location.hostname}:2567`，手机同局域网也成立）。
+> 详见 DECISIONS.md D-010。下面的验收标准一条没少。
 
 **验收**
 - [ ] `pnpm dev` 同时起 server + web，浏览器打开 localhost:5173 正常

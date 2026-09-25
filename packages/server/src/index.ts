@@ -54,7 +54,6 @@ export async function startServer(port: number = resolvePort()): Promise<Server>
   return gameServer;
 }
 
-export * from './pairing';
 export * from './rooms/PokerRoom';
 export * from './routes';
 export * from './schema/PokerRoomState';
