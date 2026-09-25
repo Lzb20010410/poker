@@ -11,9 +11,9 @@
 | 项 | 值 |
 |---|---|
 | 当前里程碑 | M0 · 骨架 |
-| 下一个任务 | `M0.2 · 领域类型与洗牌` |
-| 已完成任务数 | 1 / 24 |
-| 测试状态 | 全绿（5 passed / 3 包） |
+| 下一个任务 | `M0.3 · Colyseus 服务端骨架` |
+| 已完成任务数 | 2 / 24 |
+| 测试状态 | 全绿（63 passed / 3 包；shared 覆盖率 100/100/100/100） |
 | 构建状态 | 全绿（`pnpm verify` 退出码 0） |
 | 最后更新 | 2026-09-25 |
 
@@ -66,6 +66,48 @@ _（暂无）_
 **给下一个任务的提示**
 - （踩过的坑、需要注意的地方、和规格里写的不太一样的实际做法）
 ```
+
+---
+
+### M0.2 · 领域类型与洗牌 — 2026-09-25
+
+**做了什么**
+- `packages/shared/src/types.ts`：领域词汇表。`Suit`/`Rank`/`Card` + `SUITS`/`RANKS` 常量表；`cardId`/`parseCardId`（**查表实现，不是正则**，见下方提示）；`rankLabel`/`suitSymbol`/`suitIndex`；`Phase` + `PHASES` + `BETTING_PHASES` + `isBettingPhase`；`Action`（`raise` 用 `totalBet` 总额）；`PlayerHandState`（全部字段 `readonly`）；`Pot`；`TableConfig` + `DEFAULT_TABLE_CONFIG`（SB 10 / BB 20 / 2000 筹码 / 8 人 / 30s）+ `ACTION_WARNING_SEC`
+- `packages/shared/src/engine/random.ts`：`RandomSource` 类型、`cryptoRandom()`（Web Crypto，走 `globalThis.crypto` 不 import `node:crypto`）、`mulberry32(seed)`、`randomInt(rand, max)`（对随机源做上下界校验并抛错，不 clamp）
+- `packages/shared/src/engine/deck.ts`：`createDeck()`、`shuffle()`（Fisher-Yates，不修改入参）、`Deck` 类（`fresh` / `remaining` / `burned` 冻结快照 / `burn(n)` / `dealOne()` / `deal(n)` 原子性 / `reset()`）、`DeckExhaustedError`（带 `requested` 与 `remaining`）
+- `packages/shared/src/engine/index.ts`：引擎出口（`export * from './deck' | './random'`），对应 package.json 的 `./engine` 子路径
+- `packages/shared/src/index.ts`：追加 `export * from './types'`
+- 新增 3 个测试文件：`test/types.test.ts`（15）、`test/random.test.ts`（12）、`test/deck.test.ts`（31）
+
+**测试结果**
+- 命令：`pnpm --filter @poker-room/shared test`
+- 通过：**60 passed / 60 total**，4 个 test file 全绿（含 M0.1 的 smoke）
+- 覆盖率（`pnpm test:cov`）：statements **100%** / branches **100%** / functions **100%** / lines **100%**
+- 全仓 `pnpm verify` 退出码 **0**（eslint 零 error、守卫 5/5、typecheck 通过、3 包共 63 passed、web 构建 222.80 kB / gzip 69.61 kB）
+- 全仓 `grep -rn "Math\.random"`：shared 源码与测试中**零处调用**，仅注释与守卫脚本自身提及
+
+**验收标准自检**（对应 TASKS.md M0.2）
+- ✅ `pnpm --filter shared test` 输出已贴出，全绿（60 passed）
+- ✅ 新牌堆 52 张且不重复；4 花色 × 13 点数一个不缺
+- ✅ 洗牌后仍是 52 张且不重复，**固定 seed（20260925）验证可复现**；不同 seed 结果不同
+- ✅ 洗牌后顺序与原顺序不同，且 52 个位置中 >45 个发生位移（排除"只换了几张"的假洗牌）
+- ✅ `burn()` 返回的牌不出现在后续 `deal()` 中；多次 burn 按序全部记录；`reset()` 清空烧牌记录
+- ✅ `deal(n)` 数量正确、牌堆相应减少；`deal(0)` 不消耗；张数超出剩余时抛错且**不部分消耗**（原子性）
+- ✅ `shuffle` 的随机源是注入参数（`rand: RandomSource = cryptoRandom`），测试中全程注入 `mulberry32(SEED)`，没有直接调 `Math.random`
+- ✅ Fisher-Yates 实现正确 —— **不是靠读代码判断，是靠分布检验**：4 张牌洗 19200 次，断言 4! = 24 种排列全部出现且每种频率在期望值 ±20% 内。`sort(() => rand()-0.5)` 过不了这条
+- ✅ 额外覆盖：8 人满桌完整发牌流程（1 烧 + 16 底牌 + 1 烧 3 翻 + 1 烧 1 转 + 1 烧 1 河 = 25 张，全场无重复，剩 27）
+
+**遗留问题**
+- 无新增。M0.1 登记的三项低优先级问题状态不变。
+
+**给下一个任务的提示**
+- **`pnpm test` 通过 ≠ 类型正确。vitest 只转译不做类型检查**，本任务就栽了一次：`buckets[randomInt(...)] += 1` 在 `noUncheckedIndexedAccess` 下是 error，vitest 全绿，`pnpm typecheck` 才报出来。**每个任务收尾必须跑 `pnpm verify`，不能只跑 `pnpm test`。**
+- **100% 语句覆盖率门槛会反过来约束设计**，这是好事但要知道：任何"理论上走不到"的防御分支都会让 `pnpm test:cov` 变红。本任务因此做了两个具体选择——① `parseCardId` 用 `CARD_BY_ID` 查表而不是正则解析（表的键集合就是合法输入的完整定义，"非法输入"成为一条真实可达、被测试覆盖的分支）；② `cryptoRandom` 用 `DataView.getUint32(0)` 而不是 `Uint32Array[0]`（后者在 `noUncheckedIndexedAccess` 下类型是 `number | undefined`，会逼出一段永远走不到的判空）。**后续引擎代码照这个原则写：宁可换一种写法，也不要留死分支。**详见 `DECISIONS.md` D-008。
+- `shuffle` 内部用了两处非空断言 `out[i]!` / `out[j]!`，前提是可证的（`i < length` 由循环条件保证、`j ∈ [0,i]` 由 `randomInt` 的校验保证），旁边有注释说明。我们的 ESLint 用的是 `recommendedTypeChecked`，`no-non-null-assertion` 属于 `strictTypeChecked` 所以没开——**但这不等于可以到处撒 `!`**。规则引擎里每出现一个 `!` 都要能当场说出它为什么安全，说不出来就换写法。
+- `cryptoRandom` 缺 `globalThis.crypto` 的那条错误分支是可测的：vitest 的 node 环境里 `Reflect.deleteProperty(globalThis, 'crypto')` 有效，`finally` 里 `Reflect.set` 能恢复（已实测，见 `test/random.test.ts`）。
+- `Deck.burned` 每次访问都返回一个新的冻结副本，外部改不动内部记录；服务端要长期留存烧牌记录时，直接在自己的状态里存数组，别指望持有这个 getter 的返回值。
+- `Card` / `PlayerHandState` / `Pot` / `Action` 的字段全是 `readonly`。M1.3 的下注引擎和 M1.4 的状态机要按"不可变状态 + 返回新对象"来写，别就地改字段——`applyAction(state, seat, action) → { newState, events }` 这个签名已经假定它是纯的。
+- 牌的全局唯一编号约定为 `rank * 4 + suitIndex`（`suitIndex` 已导出）。M1.1 接 pokersolver 时如果需要字符串牌面，直接用 `cardId()`，格式是 `"As"` / `"10d"` / `"2c"`，pokersolver 吃的就是这个格式。
 
 ---
 

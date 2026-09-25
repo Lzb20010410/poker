@@ -163,3 +163,33 @@ DECISIONS.md D-003 规定 shared 包零 IO、零框架依赖。最初我把这�
 守卫检查 6 项：shared 依赖白名单、shared/src 禁止框架与 IO 导入、禁止 `Math.random()`（随机源必须注入）、禁止环境全局、全仓库禁止 `any`/`@ts-ignore`、禁止 TODO/FIXME/占位实现。
 
 **踩坑记录（别再犯）**：守卫第一版把注释也算进扫描范围，结果 `index.ts` 文档注释里那句「不许直接调用 Math.random()」被误判为真调用。修法是用逐字符状态机剥离注释（保留行号、保留字符串字面量内容），并区分两类检查——代码构造（import / Math.random / `: any`）在**剥离后**的源码上查，注释指令（`@ts-ignore` / `TODO`）在**原始**源码上查。脚本内置了 `selftest` 断言来防止注释剥离逻辑被改坏：**一个有假阴性的守卫比没有守卫更危险**。
+
+---
+
+### D-008 · 不写"理论上走不到"的防御分支——覆盖率门槛反向约束写法
+
+**日期**：2026-09-25　**任务**：M0.2　**决定者**：AI 自主
+
+**背景**
+M0.1 给 shared 包设死了覆盖率门槛：statements / functions / lines 100%，branches 95%。M0.2 开始写真代码后，这个门槛立刻和一种常见写法冲突：**用类型系统已经保证不可能发生的情况，再写一遍运行时判空**。
+
+**问题**
+这类分支永远走不到，因此永远无法被测试覆盖，于是 `pnpm test:cov` 恒红。两个具体例子：
+
+1. `parseCardId` 最初用正则 `/^(10|[2-9]|[JQKA])([shdc])$/` 解析，然后对 `match[1]`/`match[2]` 判空。正则匹配成功时两个捕获组必然存在，判空是死代码。
+2. `cryptoRandom` 最初写 `new Uint32Array(1)` 再取 `word[0]`。`noUncheckedIndexedAccess` 让它类型变成 `number | undefined`，逼出一段永远走不到的判空。
+
+**决定**
+不留死分支，改写实现方式让每条分支都真实可达：
+
+1. `parseCardId` 改成查 `CARD_BY_ID`（52 个合法牌标识 → 牌的 Map）。**表的键集合本身就是「合法输入」的完整定义**，查不到即非法——非法输入是一条真实可达、被 12 个用例覆盖的分支。顺带消灭了正则和字符串之间的双重真相来源。
+2. `cryptoRandom` 改成 `new DataView(buffer).getUint32(0)`，返回类型就是 `number`，无需判空。
+
+**理由**
+覆盖率门槛的价值不在数字本身，而在于它把「这段错误处理从来没被验证过」这件事变成可见的。一段走不到的 throw 意味着：如果哪天它真的走到了（说明前提假设错了），没人知道它会不会正常工作。绕过门槛的正确方式是消灭死代码，不是调低门槛或加 ignore 注释。
+
+**影响 / 后续照此办理**
+- 需要 `noUncheckedIndexedAccess` 下访问数组元素时，优先选返回确定类型的 API（`DataView.getUint32`、`Array.shift()`、`Map.get` + 显式判空），而不是 `arr[i]!`。
+- 确实无法避免时用非空断言 `!`，**但必须在旁边写出它为什么安全**（本次 `shuffle` 的两处 `!` 就是这么处理的：`i < length` 由循环条件保证，`j ∈ [0,i]` 由 `randomInt` 的上下界校验保证）。说不清理由就换写法。
+- 例外：`cryptoRandom` 里 `globalThis.crypto === undefined` 的 throw 保留。它在 Node 20+ 与现代浏览器中确实不可达，但**它是可测的**（`Reflect.deleteProperty(globalThis, 'crypto')` + `finally` 恢复，已在 `test/random.test.ts` 里实测覆盖）。可测的防御分支不算死代码。
+- **`pnpm test` 通过不等于类型正确**：vitest 只转译不做类型检查。本任务里 `buckets[randomInt(...)] += 1` 在 vitest 下全绿，`pnpm typecheck` 才报错。收尾一律跑 `pnpm verify`。
