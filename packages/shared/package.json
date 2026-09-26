@@ -8,7 +8,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./engine": "./src/engine/index.ts"
+    "./engine": "./src/engine/index.ts",
+    "./view": "./src/view.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -21,5 +22,8 @@
     "@vitest/coverage-v8": "5.0.1",
     "typescript": "5.9.3",
     "vitest": "5.0.1"
+  },
+  "dependencies": {
+    "pokersolver": "2.1.4"
   }
 }

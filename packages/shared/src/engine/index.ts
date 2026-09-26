@@ -6,5 +6,10 @@
  * 但**只有服务端有权用它的结果做判定**——前端只用它做展示，绝不用它决定合法性。
  */
 
+export * from './betting';
 export * from './deck';
+export * from './errors';
+export * from './evaluator';
 export * from './random';
+export * from './sidepot';
+export * from './table';

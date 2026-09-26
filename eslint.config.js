@@ -48,6 +48,18 @@ export default tseslint.config(
     },
   },
 
+  // 包内的 Node 脚本（目前只有 packages/web/scripts/play-peer.mjs 这个本地联调牌手）：
+  // 它不进浏览器、不进构建产物，所以给的是 Node 全局而不是 browser。
+  // 不直接 ignore 掉：ignore 会让这个文件里的未定义变量、未用变量从此没人管。
+  {
+    files: ['packages/*/scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
+
   // web 包：浏览器环境 + React
   {
     files: ['packages/web/**/*.{ts,tsx}'],
@@ -57,6 +69,40 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+    },
+  },
+
+  // web 源码的两道边界（只管 src：scripts/ 下的联调牌手不进产物）
+  //   1. DECISIONS.md D-019 —— 前端只准从 `@poker-room/shared/view` 取东西。
+  //      主入口带着规则引擎，而 pokersolver 是 CommonJS，tree-shaking 切不动，
+  //      一次误用就把整个引擎打进首屏。
+  //   2. DECISIONS.md D-020 —— 头像库必须留在动态 import 里。
+  //      用 no-restricted-syntax 而不是 no-restricted-imports：后者也管 `import()`，
+  //      会把 `avatar.ts` 里那个**刻意写成动态**的加载一起杀掉。
+  {
+    files: ['packages/web/src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              // 只能整条用 regex：`group` 是前缀匹配，写 '@poker-room/shared' 会连
+              // '/view' 一起挡掉，而 pattern 里没有 allow 可以放行。
+              // 这条正则的语义：主入口本身、以及除 /view 之外的任何子路径都算违规。
+              regex: '^@poker-room/shared(/(?!view$).*)?$',
+              message: '前端只依赖 @poker-room/shared/view，主入口会把规则引擎带进首屏（D-019）。',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: ":matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration)[source.value=/^@dicebear/]",
+          message: '头像库约占首屏 gzip 45%，只能通过 await import() 按需加载，唯一入口是 src/avatar.ts（D-020）。',
+        },
+      ],
     },
   },
 

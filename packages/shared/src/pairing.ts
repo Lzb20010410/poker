@@ -29,6 +29,23 @@ export const MAX_PAIRING_ATTEMPTS = 5;
 /** 判定某个配对码是否已被占用。由调用方实现（服务端用 matchMaker 查） */
 export type CodeTakenChecker = (code: string) => Promise<boolean>;
 
+/**
+ * 配对码的「预留」钩子：把占位挪到异步查重**之前**。
+ *
+ * 为什么需要它：`isTaken` 是异步的，两个房间各自查同一个码时都会看到"没人用"，
+ * 于是两个房间拿到同一个配对码（典型 TOCTOU）。预留让调用方在生成码的那一刻
+ * **同步**把它占住，第二个分配器就会直接换码，而不是挤进同一次查重。
+ *
+ * 本模块只提供接口、不提供实现（零 IO 铁律）：服务端拿一个进程内的 `Set` 实现它。
+ * 跨进程的竞态不在这里解决，见 PROGRESS.md 遗留问题。
+ */
+export interface CodeReservation {
+  /** 同步占位。返回 false 表示这个码已经被占着，调用方应立即换码重试 */
+  reserve: (code: string) => boolean;
+  /** 归还占位。必须幂等：重复释放、释放没占过的码都不许抛错 */
+  release: (code: string) => void;
+}
+
 /** 配对码非法（格式不对，不是"房间不存在"）。玩家打错字属于这一类 */
 export class InvalidPairingCodeError extends Error {
   readonly received: string;
@@ -120,16 +137,35 @@ export function filterPairingInput(raw: string): string {
  * `isTaken` 是异步的（服务端要查 matchMaker），所以本函数也是异步的。
  * 撞车就重试，最多 `maxAttempts` 次；全部撞车抛 PairingCodesExhaustedError
  * ——宁可让创建房间失败，也不要发出一个会把两个房间混在一起的码。
+ *
+ * 传了 `reservation` 时，占位发生在 `await` 之前，因此"查重 + 占位"对本进程是原子的；
+ * 不传时退化成纯查重（老行为，跨进程/单查重的调用方仍然可用）。
  */
 export async function allocatePairingCode(
   isTaken: CodeTakenChecker,
-  options: { rand?: RandomSource; maxAttempts?: number } = {},
+  options: { rand?: RandomSource; maxAttempts?: number; reservation?: CodeReservation } = {},
 ): Promise<string> {
   const rand = options.rand ?? cryptoRandom;
   const maxAttempts = options.maxAttempts ?? MAX_PAIRING_ATTEMPTS;
+  const reservation = options.reservation;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const code = generatePairingCode(rand);
-    if (!(await isTaken(code))) return code;
+    // 这一步必须在任何 await 之前：Node 单线程里同步读写就是原子的。
+    // 本地已经占着的码连 matchMaker 都不用问，直接换下一个。
+    if (reservation && !reservation.reserve(code)) continue;
+    let taken: boolean;
+    try {
+      taken = await isTaken(code);
+    } catch (error) {
+      // 查重本身失败（匹配驱动挂了）时不能把码留在表里，否则它谁也拿不到。
+      reservation?.release(code);
+      throw error;
+    }
+    if (taken) {
+      reservation?.release(code);
+      continue;
+    }
+    return code;
   }
   throw new PairingCodesExhaustedError(maxAttempts);
 }

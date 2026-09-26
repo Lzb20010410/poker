@@ -15,4 +15,5 @@ export const PACKAGE_VERSION = '0.1.0' as const;
 export * from './types';
 export * from './profile';
 export * from './pairing';
+export * from './protocol';
 export * from './engine';

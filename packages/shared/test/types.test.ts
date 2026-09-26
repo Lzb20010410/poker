@@ -4,6 +4,7 @@ import {
   ALL_CARD_IDS,
   BETTING_PHASES,
   DEFAULT_TABLE_CONFIG,
+  FELT_VALUES,
   PHASES,
   RANKS,
   SUITS,
@@ -56,9 +57,12 @@ describe('常量表', () => {
       maxPlayers: 8,
       actionTimeoutSec: 30,
       minPlayersToStart: 2,
+      // 桌布是纯展示字段，但它跟着一份配置同步给所有人，所以和规则字段同表断言
+      felt: 'green',
     });
     expect(DEFAULT_TABLE_CONFIG.bigBlind).toBe(DEFAULT_TABLE_CONFIG.smallBlind * 2);
     expect(DEFAULT_TABLE_CONFIG.startingChips).toBe(DEFAULT_TABLE_CONFIG.bigBlind * 100);
+    expect(FELT_VALUES).toContain(DEFAULT_TABLE_CONFIG.felt);
   });
 });
 

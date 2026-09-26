@@ -14,6 +14,7 @@ import {
   PairingCodesExhaustedError,
   generatePairingCode,
   parsePairingCode,
+  type CodeTakenChecker,
 } from '../src/pairing';
 
 /** 测试用种子。固定下来，出问题才能复现 */
@@ -258,6 +259,135 @@ describe('allocatePairingCode', () => {
       seen.add(await allocatePairingCode(async () => false, { rand }));
     }
     expect(seen.size).toBe(100);
+  });
+});
+
+/**
+ * 预留钩子（reservation）。
+ *
+ * 这一组测的是「查重 + 占位」的原子性。`isTaken` 是异步的，所以两个房间各自查同一个码时
+ * 都会看到"没人用"——服务端 `onCreate` 里 `allocatePairingCode` 一 await，另一个 create
+ * 就挤进来了。预留要求在 `await` **之前**同步把码占住，第二个分配器才会换码。
+ */
+describe('allocatePairingCode 的预留（reservation）', () => {
+  /** 用 Set 当成本进程的预留表，顺便记录调用顺序，便于断言"占位发生在查重之前" */
+  function makeReservation(seed: Iterable<string> = []) {
+    const held = new Set(seed);
+    const calls: string[] = [];
+    return {
+      calls,
+      held,
+      reserve: (code: string): boolean => {
+        calls.push(`reserve:${code}`);
+        if (held.has(code)) return false;
+        held.add(code);
+        return true;
+      },
+      release: (code: string): void => {
+        calls.push(`release:${code}`);
+        held.delete(code);
+      },
+    };
+  }
+
+  it('占位在异步查重之前完成，不是查完才登记', async () => {
+    const reservation = makeReservation();
+    const code = await allocatePairingCode(
+      async (c) => {
+        reservation.calls.push(`isTaken:${c}`);
+        return false;
+      },
+      { rand: stubRandForCodes(['ABC234']), reservation },
+    );
+    expect(code).toBe('ABC234');
+    expect(reservation.calls).toEqual(['reserve:ABC234', 'isTaken:ABC234']);
+  });
+
+  it('两个分配器同时跑也不会拿到同一个码（这就是原来的 TOCTOU 竞态）', async () => {
+    const reservation = makeReservation();
+    // 两边各自的随机源都先吐 ABC234，制造"同时选中同一码"的场面。
+    const gate = (() => {
+      let releaseGate: () => void = () => undefined;
+      const waiting = new Promise<void>((resolve) => {
+        releaseGate = resolve;
+      });
+      return { waiting, releaseGate };
+    })();
+    let inFlight = 0;
+    let bothInside = 0;
+    const slowTaken: CodeTakenChecker = async () => {
+      inFlight += 1;
+      // 第二个分配器必须在第一个还没拿到查重结果时就挤进来，否则这个测试没在测并发。
+      if (inFlight === 2) bothInside += 1;
+      await gate.waiting;
+      inFlight -= 1;
+      return false;
+    };
+    const first = allocatePairingCode(slowTaken, {
+      rand: stubRandForCodes(['ABC234', 'DEF567']),
+      reservation,
+    });
+    const second = allocatePairingCode(slowTaken, {
+      rand: stubRandForCodes(['ABC234', 'DEF567']),
+      reservation,
+    });
+    gate.releaseGate();
+    const [a, b] = await Promise.all([first, second]);
+    expect(bothInside).toBe(1);
+    expect([a, b].sort()).toEqual(['ABC234', 'DEF567']);
+    expect(a).not.toBe(b);
+  });
+
+  it('查重说"已被占用"时归还预留，好让后来的分配器能复用这个码', async () => {
+    const reservation = makeReservation();
+    const code = await allocatePairingCode(
+      async (c) => c === 'ABC234',
+      { rand: stubRandForCodes(['ABC234', 'DEF567']), reservation },
+    );
+    expect(code).toBe('DEF567');
+    expect(reservation.calls).toEqual([
+      'reserve:ABC234', 'release:ABC234', 'reserve:DEF567',
+    ]);
+    expect(reservation.held.has('ABC234')).toBe(false);
+  });
+
+  it('本地已经占着的码根本不去查(matchMaker)，直接换下一个码', async () => {
+    const reservation = makeReservation(['ABC234']);
+    const queried: string[] = [];
+    const code = await allocatePairingCode(
+      async (c) => {
+        queried.push(c);
+        return false;
+      },
+      { rand: stubRandForCodes(['ABC234', 'DEF567']), reservation },
+    );
+    expect(code).toBe('DEF567');
+    expect(queried).toEqual(['DEF567']);
+    expect(reservation.calls).toEqual(['reserve:ABC234', 'reserve:DEF567']);
+  });
+
+  it('查重抛错时同样归还预留，不留占着又没人用的死码', async () => {
+    const reservation = makeReservation();
+    await expect(
+      allocatePairingCode(async () => {
+        throw new Error('匹配驱动挂了');
+      }, { rand: stubRandForCodes(['ABC234']), reservation }),
+    ).rejects.toThrow(/匹配驱动挂了/);
+    expect(reservation.calls).toEqual(['reserve:ABC234', 'release:ABC234']);
+    expect(reservation.held.size).toBe(0);
+  });
+
+  it('不传 reservation 时行为跟以前一致：只按 isTaken 决定', async () => {
+    const queried: string[] = [];
+    const code = await allocatePairingCode(
+      async (c) => {
+        queried.push(c);
+        return c === 'ABC234';
+      },
+      { rand: stubRandForCodes(['ABC234', 'DEF567']) },
+    );
+    expect(code).toBe('DEF567');
+    expect(queried).toEqual(['ABC234', 'DEF567']);
   });
 });
 

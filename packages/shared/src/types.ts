@@ -176,6 +176,16 @@ export type MinPlayers = 2;
 /** 牌桌最大人数，2..8 */
 export type MaxPlayers = 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
+/**
+ * 桌布两档，色值来自 `SPEC.md` §4.6（绿呢 `#1A6B4A` / 蓝呢 `#1F4E79`）。
+ *
+ * 名单与类型由同一个 `as const` 数组推出来：加第三档时只改这一行，
+ * 运行时判定（`validateConfig`）和类型跟着一起变，不会出现「类型收得比校验严」或反之。
+ */
+export const FELT_VALUES = ['green', 'blue'] as const;
+
+export type FeltColor = (typeof FELT_VALUES)[number];
+
 export interface TableConfig {
   /** 小盲，默认 10 */
   readonly smallBlind: number;
@@ -189,6 +199,13 @@ export interface TableConfig {
   readonly actionTimeoutSec: number;
   /** 开局最少人数，固定 2 */
   readonly minPlayersToStart: MinPlayers;
+  /**
+   * 桌布颜色，默认绿呢。这是 `TableConfig` 里**唯一一个纯展示字段**：
+   * 引擎从不读它，它跟着配置走只是为了「房主选一次、全桌看到同一张桌子」，
+   * 顺带复用现有的房主判定与 IDLE 锁（牌局进行中改桌布会牵动所有人的视线，
+   * 所以和其他配置一起在开局前定）。
+   */
+  readonly felt: FeltColor;
 }
 
 export const DEFAULT_TABLE_CONFIG: TableConfig = {
@@ -198,6 +215,7 @@ export const DEFAULT_TABLE_CONFIG: TableConfig = {
   maxPlayers: 8,
   actionTimeoutSec: 30,
   minPlayersToStart: 2,
+  felt: 'green',
 };
 
 /** 行动超时提前告警秒数（剩余 10 秒时提示），见 SPEC.md §3.5 */
