@@ -20,7 +20,7 @@ import {
   sanitizeAvatarSeed,
   sanitizeNickname,
   type RandomSource,
-} from '@poker-room/shared';
+} from '@poker-room/shared/view';
 
 /**
  * 存储键带版本号。

@@ -16,7 +16,7 @@
  * 三次 `create` 会开出三张桌子。
  */
 
-import { isValidPairingCode } from '@poker-room/shared';
+import { isValidPairingCode } from '@poker-room/shared/view';
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 

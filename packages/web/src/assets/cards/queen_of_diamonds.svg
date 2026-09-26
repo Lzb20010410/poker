@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="167.0869141pt" height="242.6669922pt" viewBox="0 0 167.0869141 242.6669922">
+  <path d="M166.8369141,235.5478516c0,3.7773438-3.0869141,6.8691406-6.8710938,6.8691406H7.1108398c-3.7749023,0-6.8608398-3.0917969-6.8608398-6.8691406V7.1201172C0.25,3.3427734,3.3359375,0.25,7.1108398,0.25h152.8549805    c3.7841797,0,6.8710938,3.0927734,6.8710938,6.8701172v228.4277344z" fill="#FFFFFF" stroke="#B9C2CC" stroke-width="1" />
+  <clipPath id="p-diamonds-queen"><rect x="14" y="62" width="139" height="119" /></clipPath>
+  <rect x="14" y="62" width="139" height="119" fill="none" stroke="#B9C2CC" stroke-width="1" />
+  <g clip-path="url(#p-diamonds-queen)">
+    
+    <g id="half-diamonds">
+      <path d="M14,121.5 L14,105 C34,96.5 59,92.5 83.543,92.5 C108,92.5 133,96.5 153,105 L153,121.5 Z" fill="#15191E" />
+      <path d="M14,105 C34,96.5 59,92.5 83.543,92.5 C108,92.5 133,96.5 153,105" fill="none" stroke="#DF0000" stroke-width="2.4" />
+      <rect x="34" y="76" width="5" height="45.5" fill="#15191E" />
+      <path d="M39,66 L54,73 L54,85 L39,92 Z" fill="#DF0000" stroke="#15191E" stroke-width="1.2" />
+      <path transform="translate(47 79) scale(0.85)" d="M 3.2433274,-4.7253274 C 1.1263274,-7.5893274 0,-10.5 0,-10.5 c 0,0 -1.1263274,2.9106726 -3.2433274,5.7746726 C -5.3613274,-1.8623274 -8,0 -8,0 -8,0 -5.3613274,1.8613274 -3.2433274,4.7263274 -1.1263274,7.5893274 0,10.5 0,10.5 0,10.5 1.1263274,7.5893274 3.2433274,4.7263274 5.3613274,1.8613274 8,0 8,0 8,0 5.3613274,-1.8623274 3.2433274,-4.7253274 z" fill="#FFFFFF" />
+      <circle cx="83.543" cy="80" r="13.5" fill="#FFFFFF" stroke="#15191E" stroke-width="2.4" />
+      <circle cx="78.6" cy="78.5" r="1.7" fill="#15191E" />
+      <circle cx="88.5" cy="78.5" r="1.7" fill="#15191E" />
+      <path d="M67,72 L100,72" fill="none" stroke="#C99A2E" stroke-width="3.4" />
+      <circle cx="69.5" cy="69.2" r="2.7" fill="#C99A2E" stroke="#15191E" stroke-width="0.8" />
+      <circle cx="76.5" cy="67.4" r="2.7" fill="#C99A2E" stroke="#15191E" stroke-width="0.8" />
+      <circle cx="83.543" cy="66.6" r="2.7" fill="#C99A2E" stroke="#15191E" stroke-width="0.8" />
+      <circle cx="90.5" cy="67.4" r="2.7" fill="#C99A2E" stroke="#15191E" stroke-width="0.8" />
+      <circle cx="97.5" cy="69.2" r="2.7" fill="#C99A2E" stroke="#15191E" stroke-width="0.8" />
+      <path d="M70.5,74 C66,84 67,90 71,95" fill="none" stroke="#15191E" stroke-width="2.2" />
+      <path d="M96.5,74 C101,84 100,90 96,95" fill="none" stroke="#15191E" stroke-width="2.2" />
+    </g>
+    <use href="#half-diamonds" transform="rotate(180 83.543 121.333)" />
+    <rect x="14" y="119" width="139" height="5" fill="#FFFFFF" />
+    <path d="M14,121.5 L153,121.5" stroke="#15191E" stroke-width="2" />
+  </g>
+  <g data-corner="tl">
+    <text x="8.7754" y="28.0133" font-family="Arial, Helvetica, sans-serif" font-size="32" fill="#DF0000"><tspan>Q</tspan></text>
+    <path transform="translate(17.5 44) scale(1.35)" d="M 3.2433274,-4.7253274 C 1.1263274,-7.5893274 0,-10.5 0,-10.5 c 0,0 -1.1263274,2.9106726 -3.2433274,5.7746726 C -5.3613274,-1.8623274 -8,0 -8,0 -8,0 -5.3613274,1.8613274 -3.2433274,4.7263274 -1.1263274,7.5893274 0,10.5 0,10.5 0,10.5 1.1263274,7.5893274 3.2433274,4.7263274 5.3613274,1.8613274 8,0 8,0 8,0 5.3613274,-1.8623274 3.2433274,-4.7253274 z" fill="#DF0000" />
+  </g>
+  <g data-corner="br" transform="rotate(180 83.543 121.333)">
+    <text x="8.7754" y="28.0133" font-family="Arial, Helvetica, sans-serif" font-size="32" fill="#DF0000"><tspan>Q</tspan></text>
+    <path transform="translate(17.5 44) scale(1.35)" d="M 3.2433274,-4.7253274 C 1.1263274,-7.5893274 0,-10.5 0,-10.5 c 0,0 -1.1263274,2.9106726 -3.2433274,5.7746726 C -5.3613274,-1.8623274 -8,0 -8,0 -8,0 -5.3613274,1.8613274 -3.2433274,4.7263274 -1.1263274,7.5893274 0,10.5 0,10.5 0,10.5 1.1263274,7.5893274 3.2433274,4.7263274 5.3613274,1.8613274 8,0 8,0 8,0 5.3613274,-1.8623274 3.2433274,-4.7253274 z" fill="#DF0000" />
+  </g>
+</svg>

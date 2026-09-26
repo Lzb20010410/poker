@@ -15,7 +15,7 @@
  *    所以非法字符不只是「提交时报错」，而是根本打不进去。
  */
 
-import { filterPairingInput, isValidPairingCode, PAIRING_CODE_LENGTH } from '@poker-room/shared';
+import { filterPairingInput, isValidPairingCode, PAIRING_CODE_LENGTH } from '@poker-room/shared/view';
 import type { ChangeEvent, KeyboardEvent, ReactNode } from 'react';
 
 export interface CodeFieldProps {

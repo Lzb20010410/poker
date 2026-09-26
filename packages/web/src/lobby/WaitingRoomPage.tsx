@@ -11,7 +11,7 @@
  * effect 会被打两遍的那条路径，防重复连接靠 `RoomContext` 的 `pendingKeyRef`。
  */
 
-import { isValidPairingCode, normalizePairingCode } from '@poker-room/shared';
+import { isValidPairingCode, normalizePairingCode } from '@poker-room/shared/view';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
@@ -25,7 +25,7 @@ const COPIED_HINT_MS = 2_000;
 export function WaitingRoomPage(): ReactNode {
   const params = useParams();
   const { profile } = useProfile();
-  const { status, snapshot, joinRoom, leaveRoom } = useRoom();
+  const { status, snapshot, link, joinRoom, leaveRoom } = useRoom();
   const navigate = useNavigate();
 
   const code = normalizePairingCode(params['code'] ?? '');
@@ -123,13 +123,21 @@ export function WaitingRoomPage(): ReactNode {
       </section>
 
       <section className="card">
+        {/* 大厅四张卡片都以 `card__title` 开头，等待室此前只有这一张是裸的一排按钮，
+            两页并排看会得到「有的块有标题、有的没有」这种没人解释得了的差异 */}
+        <h2 className="card__title">下一步</h2>
         <div className="btn-row">
           {/*
             没连上时渲染 disabled 的 <button> 而不是 `to="#"` 的 <Link>：
             一个指向 `#` 的链接对键盘和读屏用户是「可点但点了没反应」，
             而 disabled 按钮是明确的「现在不行」。
+
+            `reconnecting` 也算「现在不行」——SDK 自动重连的那约 56 秒里，
+            手里的快照是**过期**的，进牌桌看到的就是一个不再更新的界面，
+            而那里的按钮也已经全禁了，进去只会让人以为牌桌坏了。
+            重连成功会自己变回链接，玩家不用做任何事。
           */}
-          {connected ? (
+          {connected && link === 'online' ? (
             <Link className="btn btn--primary" to={`/t/${code}`}>
               进入牌桌
             </Link>
@@ -142,7 +150,9 @@ export function WaitingRoomPage(): ReactNode {
             离开房间
           </button>
         </div>
-        <p className="card__subtitle">牌桌要等规则引擎（M1）做完才能真正开局，现在只是一个等待视图。</p>
+        <p className="card__subtitle">
+          牌桌上就能开局：人坐够之后，房主在「房主设置」里点「开始牌局」即可发第一手牌。
+        </p>
       </section>
     </div>
   );

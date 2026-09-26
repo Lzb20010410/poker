@@ -195,7 +195,7 @@ describe('等待室 · 玩家进出', () => {
    * 教训是：假实现必须照着真 SDK 的信号分工来建模，
    * 否则它保护的只是一个不存在的行为。
    */
-  it('掉线的第一时间说「正在重连」，并劝住玩家别刷新', async () => {
+  it('掉线的第一时间说「正在重连」，并把「这段时间不能操作」讲清楚', async () => {
     seedProfile();
     const fake = createFakeClient();
     renderWaitingRoom(`/r/${CODE}`, fake);
@@ -207,13 +207,32 @@ describe('等待室 · 玩家进出', () => {
 
     const banner = await screen.findByRole('status');
     expect(banner).toHaveTextContent('正在重连');
-    // 刷新会连 reconnectionToken 一起丢掉，本来能无缝续上的座位就真没了，
-    // 所以这句话不是客套，是这条横幅存在的理由之一
-    expect(banner).toHaveTextContent('别刷新页面');
+    // 这句话在 M1.6 换过一次。原来写的是「别刷新页面——刷新会把重连凭证丢掉」，
+    // 而现在凭证存在**这个标签页的 sessionStorage** 里，刷新恰恰能续上座位，
+    // 留着那句只会把玩家真正有效的自救手段挡掉。
+    // 断线期间真正的坑是「按钮还亮着、动作却发不出去」，所以说的是这件事。
+    expect(banner).toHaveTextContent('按钮我们也先禁用了');
     // 温和播报，不打断朗读：掉线不是需要玩家立刻动手的错误
     expect(banner).not.toHaveAttribute('role', 'alert');
     // 重连窗口里旧快照照旧摆着，玩家至少还能看见刚才那一桌人
     expect(screen.getByText('1/8')).toBeInTheDocument();
+  });
+
+  it('等重连的那段时间里「进入牌桌」不亮：那是一份过期快照', async () => {
+    seedProfile();
+    const fake = createFakeClient();
+    renderWaitingRoom(`/r/${CODE}`, fake);
+    await screen.findByRole('link', { name: '进入牌桌' });
+
+    act(() => {
+      roomOf(fake, CODE).dropConnection();
+    });
+
+    // 链接换成 disabled 的按钮，理由和连不上服务端时一样：
+    // 一个「点了什么都不会发生」的链接比一个不亮的按钮坏得多。
+    const enter = screen.getByRole('button', { name: '进入牌桌' });
+    expect(enter).toBeDisabled();
+    expect(screen.queryByRole('link', { name: '进入牌桌' })).not.toBeInTheDocument();
   });
 
   it('重连成功后横幅消失，牌桌回到正常样子', async () => {

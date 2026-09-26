@@ -70,10 +70,13 @@ async function expectArrivedAtWaitingRoom(code: string): Promise<void> {
 }
 
 describe('大厅 · 身份', () => {
-  it('首次访问就有一套默认身份（分享链接要能直接进房，不能被表单拦住）', () => {
+  it('首次访问就有一套默认身份（分享链接要能直接进房，不能被表单拦住）', async () => {
     renderLobby(createFakeClient());
     expect(nicknameInput().value).toMatch(/^玩家[A-Z2-9]{4}$/);
-    expect(screen.getByAltText('你的头像').getAttribute('src')?.startsWith('data:image/svg+xml')).toBe(true);
+    // 头像是按需加载的（D-020），所以先等 `<img>` 出现再查 src：
+    // 在它之前挂的是同尺寸的占位块，没有 alt 属性，findByAltText 天然只会等到真图。
+    const avatar = await screen.findByAltText('你的头像');
+    expect(avatar.getAttribute('src')?.startsWith('data:image/svg+xml')).toBe(true);
   });
 
   it('读回本地存档里的身份', () => {
@@ -104,14 +107,17 @@ describe('大厅 · 身份', () => {
     expect(nicknameInput()).not.toHaveAttribute('maxlength');
   });
 
-  it('「换一个」换头像，并且换完是稳定的（同 seed 必定同图）', () => {
+  it('「换一个」换头像，并且换完是稳定的（同 seed 必定同图）', async () => {
     seedProfile();
     renderLobby(createFakeClient());
-    const avatar = screen.getByAltText('你的头像');
-    const before = avatar.getAttribute('src');
+    const before = (await screen.findByAltText('你的头像')).getAttribute('src');
     fireEvent.click(screen.getByRole('button', { name: '换一个' }));
-    const after = avatar.getAttribute('src');
-    expect(after).not.toBe(before);
+    // 换 seed 之后旧图会先退回占位块（避免闪一张别人的脸），所以要重新等 `<img>` 挂载
+    const after = await waitFor(() => {
+      const src = screen.getByAltText('你的头像').getAttribute('src');
+      expect(src).not.toBe(before);
+      return src;
+    });
     expect(after?.startsWith('data:image/svg+xml')).toBe(true);
   });
 

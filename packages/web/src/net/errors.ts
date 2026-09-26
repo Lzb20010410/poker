@@ -28,7 +28,7 @@
  */
 
 import { ErrorCode } from '@colyseus/sdk';
-import { DEFAULT_TABLE_CONFIG } from '@poker-room/shared';
+import { DEFAULT_TABLE_CONFIG } from '@poker-room/shared/view';
 
 /** 玩家会遇到的失败种类。UI 按这个分派文案，不做字符串匹配 */
 export type ConnectionFailureKind =

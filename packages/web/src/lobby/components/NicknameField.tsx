@@ -13,7 +13,7 @@
  * 代价是手机键盘不会显示「x/16」的计数——那个由组件自己在下面渲染。
  */
 
-import { MAX_NICKNAME_LENGTH, truncateByCodePoint } from '@poker-room/shared';
+import { MAX_NICKNAME_LENGTH, truncateByCodePoint } from '@poker-room/shared/view';
 import type { ChangeEvent, ReactNode } from 'react';
 
 export interface NicknameFieldProps {

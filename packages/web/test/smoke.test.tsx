@@ -36,11 +36,15 @@ describe('App 冒烟', () => {
     expect(screen.getByRole('button', { name: '加入房间' })).toBeInTheDocument();
   });
 
-  it('没有存档时自动生成一套身份，而不是甩一个空表单给玩家', () => {
+  it('没有存档时自动生成一套身份，而不是甩一个空表单给玩家', async () => {
     render(<App />);
     const nickname = screen.getByLabelText<HTMLInputElement>('昵称');
     expect(nickname.value.length).toBeGreaterThan(0);
-    expect(screen.getByAltText('你的头像')).toHaveAttribute('src', expect.stringContaining('data:image/svg+xml'));
+    // 头像改成按需加载（D-020）：等 `<img>` 真挂上来再断言 src，占位块没有 alt
+    expect(await screen.findByAltText('你的头像')).toHaveAttribute(
+      'src',
+      expect.stringContaining('data:image/svg+xml'),
+    );
   });
 
   it('未知路由重定向回大厅（分享链接被人改坏一个字符也不该白屏）', () => {

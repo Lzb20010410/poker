@@ -14,10 +14,14 @@
  * ## 为什么「重连中」值得单独一条横幅
  *
  * Colyseus SDK 掉线后会自己重连约 56 秒才放弃（`net/types.ts` 里 `LinkState`
- * 有完整说明）。这段时间里页面上的牌桌看起来完全正常，只是不再更新——
- * 玩家不会知道网断了，只会以为别人都在发呆。所以必须把它显式说出来，
- * 而且要明说「别刷新」：刷新会把 SDK 手里那个 reconnectionToken 一起丢掉，
- * 本来能无缝续上的座位就真的没了。
+ * 有完整说明）。这段时间里牌桌看起来完全正常，只是不再更新——玩家不会知道网断了，
+ * 只会以为别人都在发呆。所以必须把它显式说出来。
+ *
+ * 措辞在 M1.6 改过一次。原来这里写的是「别刷新页面——刷新会把重连凭证一起丢掉」，
+ * 那在 M0.4 是真的，现在不是：重连凭证存在**这个标签页的 sessionStorage**
+ * （`net/storage.ts`），刷新后会自动拿它续上同一个座位。留着那句话会让玩家
+ * 不敢刷新，从而错过真正有效的自救手段。现在说的是「动作不会被攒着」这件事，
+ * 它才是断线期间真正会踩到的坑。
  */
 
 import type { ReactNode } from 'react';
@@ -63,7 +67,8 @@ export function StatusBanner({ status, failure, link, onDismissFailure }: Status
         <div className="banner__body">
           <strong className="banner__title">连接已断开</strong>
           <span className="banner__hint">
-            重连没成功，房间可能已经解散。回到大厅重新创建一个，或者让房主再发一次配对码。
+            自动重连没成功。刷新这一页或者回大厅再进一次同一个配对码都能重试；
+            如果服务端已经不认这个旧身份了，你会以新身份重新入座，界面会说明。
           </span>
         </div>
       </div>
@@ -76,8 +81,9 @@ export function StatusBanner({ status, failure, link, onDismissFailure }: Status
         <div className="banner__body">
           <strong className="banner__title">连接不稳定，正在重连…</strong>
           <span className="banner__hint">
-            别刷新页面——刷新会把重连凭证一起丢掉，本来能续上的座位就没了。手机在 Wi-Fi 和流量之间切换时最常见，
-            大约一分钟内会自动接回去；接不回去这里会变成「连接已断开」。
+            这段时间牌桌不会更新，按钮我们也先禁用了——过期的动作不会被攒着等重连后突然打出去。
+            手机在 Wi-Fi 和流量之间切换时最常见，大约一分钟内会自动接回去；
+            实在接不回去这里会变成「连接已断开」。刷新这一页一般能续上原来的座位。
           </span>
         </div>
       </div>

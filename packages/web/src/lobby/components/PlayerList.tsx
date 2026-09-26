@@ -1,11 +1,12 @@
 /**
  * 等待室里的玩家列表。
  *
- * M0.4 只需要显示「谁已经进来了」。M1 之后这里会变成牌桌座位，
- * 顺序由服务端的 seatIndex 决定，而不是现在的 sessionId 排序。
+ * M0.4 只需要显示「谁已经进来了」。M1 之后牌桌另有自己的座位视图（`table/SeatList`），
+ * 这里继续服务大厅 / 等待室。传入的数组**已经按座位排好序**（`net/view.ts` 负责排序，
+ * 旁观者排最后），所以组件只管渲染，不再自己按 id 排。
  */
 
-import { DEFAULT_TABLE_CONFIG } from '@poker-room/shared';
+import { DEFAULT_TABLE_CONFIG } from '@poker-room/shared/view';
 import type { ReactNode } from 'react';
 
 import type { ConnectedPlayer } from '../../net/types';
@@ -23,7 +24,7 @@ export function PlayerList({ players }: PlayerListProps): ReactNode {
   return (
     <ul className="player-list">
       {players.map((player) => (
-        <li className="player-list__item" key={player.sessionId}>
+        <li className="player-list__item" key={player.id}>
           <AvatarPreview seed={player.avatarSeed} size={48} label={`${player.nickname} 的头像`} />
           <span className="player-list__name">{player.nickname}</span>
           {player.isSelf && <span className="badge badge--self">你</span>}
