@@ -18,7 +18,10 @@
  * |---|---|---|
  * | `/` | 大厅 | 改身份 / 开一桌 / 输码进桌 |
  * | `/r/:code` | 等待室 | 配对码 + 分享链接 + 已进来的人 |
- * | `/t/:code` | 牌桌 | M0.4 只显示成员，M1.6 接入真正的牌局 |
+ * | `/t/:code` | 牌桌 | M1.6 接入真正的牌局 |
+ * | `/dev/assets` | 资产总览 | M2.1 的目视验收页，玩家不会走这儿 |
+ * | `/dev/table` | 牌桌布局总览 | M2.2 的目视验收页，同上 |
+ * | `/dev/replay` | 状态回放器 | M3.2 的动画调试台，喂硬编码事件序列，不连服务端 |
  *
  * 兜底路由重定向到 `/`：配对码是 6 位字符，手打错一位就会落到一个不存在的路径上，
  * 给个 404 页面不如直接把玩家送回大厅。
@@ -29,11 +32,34 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import { AppShell } from './AppShell';
 import { ErrorBoundary } from './ErrorBoundary';
+import { DevAssetsPage } from './dev/DevAssetsPage';
+import { DevReplayPage } from './dev/DevReplayPage';
+import { DevTablePage } from './dev/DevTablePage';
 import { LobbyPage } from './lobby/LobbyPage';
 import { WaitingRoomPage } from './lobby/WaitingRoomPage';
 import { ProfileProvider } from './state/ProfileContext';
 import { RoomProvider } from './state/RoomContext';
 import { TablePage } from './table/TablePage';
+
+/**
+ * 路由表。单独抽出来只为了一件事：测试能在不挂 Provider、不连服务端的情况下
+ * 断言「`/dev/assets` 命中的是资产页，而不是被 `*` 兜底送回大厅」。
+ * 直接 render `<App />` 的话，`RoomProvider` 会去要一个真 client。
+ */
+export function AppRoutes(): ReactNode {
+  return (
+    <Routes>
+      <Route path="/" element={<LobbyPage />} />
+      <Route path="/r/:code" element={<WaitingRoomPage />} />
+      <Route path="/t/:code" element={<TablePage />} />
+      {/* 静态段比 `*` 优先级高，放在它前面只是为了读起来顺，不是靠顺序取胜 */}
+      <Route path="/dev/assets" element={<DevAssetsPage />} />
+      <Route path="/dev/table" element={<DevTablePage />} />
+      <Route path="/dev/replay" element={<DevReplayPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
 
 export function App(): ReactNode {
   return (
@@ -42,12 +68,7 @@ export function App(): ReactNode {
         <RoomProvider>
           <BrowserRouter>
             <AppShell>
-              <Routes>
-                <Route path="/" element={<LobbyPage />} />
-                <Route path="/r/:code" element={<WaitingRoomPage />} />
-                <Route path="/t/:code" element={<TablePage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <AppRoutes />
             </AppShell>
           </BrowserRouter>
         </RoomProvider>
