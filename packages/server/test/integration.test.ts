@@ -7,9 +7,11 @@
  * - /health 是否真的挂在同一个 HTTP 端口上
  *
  * 端口说明（踩过坑，别再踩）：`boot()` 的 `Server` 重载**忽略**第二个 port 参数，
- * 内部写死 `DEFAULT_TEST_PORT = 2568`。这里正好只有一个集成测试文件，
- * 所以直接用 2568；如果以后新增第二个集成测试文件，必须给它另一个端口，
- * 办法是改用 `boot({ rooms, initializeExpress }, port)` 那个重载。
+ * 内部写死 `DEFAULT_TEST_PORT = 2568`。本文件要的正是"连 /health 一起验"，只有这个重载
+ * 能传现成的 Server，所以我们就吃 2568 —— 但必须把 `TEST_PORT = 2568` 显式写出来。
+ * `poker-network`（2569）与 `poker-lifecycle`（2570）改用 `boot({ rooms, initializeExpress }, port)`
+ * 那个重载自己挑端口。这条不再靠人记：`scripts/check-arch.mjs` 规则 8 会扫所有 server 测试
+ * 文件的 `boot()` 调用，端口撞车、占用 2567/5173、或吃了隐含 2568 却没写出 2568 都会让 lint 失败。
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -37,10 +39,15 @@ interface ClientRoom {
   roomId: string;
   sessionId: string;
   state: ClientPokerState;
+  onMessage(type: '*', callback: (type: string | number, payload: unknown) => void): unknown;
   waitForInitialState(): Promise<void>;
   leave(consented?: boolean): Promise<void>;
 }
 
+const messages: Array<{ type: string | number; payload: unknown }> = [];
+function collectMessages(room: ClientRoom): void {
+  room.onMessage('*', (type, payload) => messages.push({ type, payload }));
+}
 let ts: ColyseusTestServer;
 
 /** 轮询等待条件成立。比 waitForNextPatch 稳：patch 可能不含我们关心的字段 */
@@ -64,6 +71,7 @@ function slots(room: ClientRoom): Array<{ nickname: string; avatarSeed: string }
 /** 创建一个房间并连上第一个客户端 */
 async function createRoom(nickname: string, avatarSeed?: string): Promise<ClientRoom> {
   const room = (await ts.sdk.create('poker', { nickname, avatarSeed })) as unknown as ClientRoom;
+  collectMessages(room);
   await room.waitForInitialState();
   return room;
 }
@@ -122,6 +130,7 @@ describe('两个客户端用同一配对码进入同一房间', () => {
 
     // 关键路径：第二个玩家只拿配对码进房，不需要任何 HTTP 解析端点
     const bob = (await ts.sdk.joinById(code, { nickname: 'Bob' })) as unknown as ClientRoom;
+    collectMessages(bob);
     await bob.waitForInitialState();
 
     expect(bob.roomId).toBe(code);
@@ -138,8 +147,10 @@ describe('两个客户端用同一配对码进入同一房间', () => {
     const alice = await createRoom('Alice');
     const code = alice.roomId;
     const bob = (await ts.sdk.joinById(code, { nickname: 'Bob' })) as unknown as ClientRoom;
+    collectMessages(bob);
     await bob.waitForInitialState();
     const carol = (await ts.sdk.joinById(code, { nickname: 'Carol' })) as unknown as ClientRoom;
+    collectMessages(carol);
     await carol.waitForInitialState();
 
     expect(nicknames(carol)).toEqual(['Alice', 'Bob', 'Carol']);
@@ -153,6 +164,7 @@ describe('两个客户端用同一配对码进入同一房间', () => {
     const alice = await createRoom('Alice');
     const code = alice.roomId;
     const bob = (await ts.sdk.joinById(code, { nickname: 'Bob' })) as unknown as ClientRoom;
+    collectMessages(bob);
     await bob.waitForInitialState();
     await waitFor(() => nicknames(alice).includes('Bob'), 'Alice 收到 Bob');
 
@@ -197,6 +209,7 @@ describe('头像 seed 同步（M0.4 大厅要显示头像）', () => {
       nickname: 'Bob',
       avatarSeed: 'bobSeed2',
     })) as unknown as ClientRoom;
+    collectMessages(bob);
     await bob.waitForInitialState();
     await waitFor(() => slots(alice).length === 2, 'Alice 看到 Bob');
 
