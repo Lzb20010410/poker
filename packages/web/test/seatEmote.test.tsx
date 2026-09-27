@@ -19,7 +19,7 @@
  * 再切到 fake timers 掐这一条要测的那段。
  */
 
-import { act, render, screen, within, type RenderResult } from '@testing-library/react';
+import { act, fireEvent, render, screen, within, type RenderResult } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -129,7 +129,8 @@ describe('表情气泡 · 接收端（事件 → 气泡 → 自己消失）', ()
 
   it('收到 player:emoji 就在对应座位冒出来，文案与表情条上同一份表', async () => {
     const room = await openTable();
-    // 发的一端：表情条上确实有一枚按钮叫「大笑」
+    // 发的一端：表情条上确实有一枚按钮叫「大笑」（表情收在工具条里，先把它拉开）
+    fireEvent.click(screen.getByRole('button', { name: '表情' }));
     expect(screen.getByRole('button', { name: '大笑' })).toBeInTheDocument();
     pushEvent(room, { t: 'player:emoji', seatIndex: 1, emoji: 'laugh' });
     // 收的一端：同一句话出现在老王那一格上，而不在我这一格

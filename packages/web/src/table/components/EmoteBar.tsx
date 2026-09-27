@@ -39,11 +39,20 @@ export function emoteLabel(emoji: string): string | undefined {
 export interface EmoteBarProps {
   readonly disabled: boolean;
   readonly onEmote: (emoji: Emoji) => void;
+  /** 工具条上那颗「表情」用 `aria-controls` 指到这里，所以这一条得有自己的 id */
+  readonly id?: string;
+  /**
+   * 收起状态。给的是 `hidden` 属性而不是 `display: none` 的样式：
+   * 压在下面的四颗钮不该还能被 Tab 聚焦、被读屏念到。
+   * `.emote-bar` 自己声明了 `display: flex`，会把 UA 那条 `[hidden] { display: none }` 盖掉，
+   * 所以 CSS 侧配了 `.emote-bar[hidden]` 把它收回来（见 global.css）。
+   */
+  readonly hidden?: boolean;
 }
 
-export function EmoteBar({ disabled, onEmote }: EmoteBarProps): ReactNode {
+export function EmoteBar({ disabled, onEmote, id, hidden }: EmoteBarProps): ReactNode {
   return (
-    <div className="emote-bar" role="group" aria-label="表情">
+    <div className="emote-bar" id={id} hidden={hidden} role="group" aria-label="表情">
       {EMOTES.map((entry) => (
         <button
           className="btn btn--ghost emote-bar__item"

@@ -39,6 +39,14 @@ export interface HostPanelProps {
   readonly snapshot: RoomSnapshot;
   /** 断线期间为 true */
   readonly disabled: boolean;
+  /** 工具条上那颗「房主设置」用 `aria-controls` 指到这里 */
+  readonly id?: string;
+  /**
+   * 收起状态。整块（含「开始牌局」）默认是收着的——他要的是「主要界面只有牌桌、底牌和操作」。
+   * 同 `EmoteBar`：`.card` 自己声明了 display，所以 `hidden` 要在 CSS 侧配
+   * `.card[hidden] { display: none }` 才真收得下去。
+   */
+  readonly hidden?: boolean;
   readonly onStart: () => void;
   readonly onSaveConfig: (config: Partial<TableConfig>) => void;
 }
@@ -79,7 +87,7 @@ function readFelt(form: FormData): FeltColor | undefined {
     : undefined;
 }
 
-export function HostPanel({ snapshot, disabled, onStart, onSaveConfig }: HostPanelProps): ReactNode {
+export function HostPanel({ snapshot, disabled, id, hidden, onStart, onSaveConfig }: HostPanelProps): ReactNode {
   if (!snapshot.isHost) return null;
 
   const { config } = snapshot;
@@ -87,7 +95,7 @@ export function HostPanel({ snapshot, disabled, onStart, onSaveConfig }: HostPan
   const seatedCount = snapshot.players.filter((player) => player.seatIndex !== null).length;
 
   return (
-    <section className="card card--accent card--wide">
+    <section className="card card--accent card--wide" id={id} hidden={hidden}>
       <h3 className="card__title">房主设置</h3>
 
       <form

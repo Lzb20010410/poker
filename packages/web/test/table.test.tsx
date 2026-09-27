@@ -475,7 +475,100 @@ describe('牌桌 · 座位与筹码', () => {
   });
 });
 
+describe('牌桌 · 工具条与折叠', () => {
+  /**
+   * 工具条上那两颗展开钮。名字与面板自己的标题一字不差，读屏念出来就是
+   * 「表情 已展开 / 已收起」，玩家不用先学一套新词。
+   */
+  function toggle(name: string): HTMLElement {
+    return screen.getByRole('button', { name });
+  }
+
+  it('默认收起：表情和房主设置只剩两颗钮，信息行不跟着收', async () => {
+    const room = await openTable();
+    patch(room, { phase: 'IDLE' });
+    expect(toggle('表情')).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle('房主设置')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: '大笑' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '牌桌配置' })).not.toBeInTheDocument();
+    // 他选的是「动作按钮收起来，信息留着」：局势那一行不在折叠范围里
+    expect(screen.getByRole('heading', { name: `牌桌 ${CODE}` })).toBeInTheDocument();
+    expect(screen.getByText('当前下注')).toBeInTheDocument();
+  });
+
+  it('点「表情」展开那一排，再点收回', async () => {
+    await openTable();
+    fireEvent.click(toggle('表情'));
+    expect(toggle('表情')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: '大笑' })).toBeInTheDocument();
+    fireEvent.click(toggle('表情'));
+    expect(toggle('表情')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: '大笑' })).not.toBeInTheDocument();
+  });
+
+  it('点一个表情：上送之后托盘自己收起，不用回头再点一下', async () => {
+    const room = await openTable();
+    fireEvent.click(toggle('表情'));
+    fireEvent.click(screen.getByRole('button', { name: '大笑' }));
+    expect(sentCommands(room)).toEqual([{ t: 'emoji', emoji: 'laugh' }]);
+    expect(toggle('表情')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: '大笑' })).not.toBeInTheDocument();
+  });
+
+  it('同屏只开一个：开「房主设置」会把表情托盘收回去', async () => {
+    const room = await openTable();
+    patch(room, { phase: 'IDLE' });
+    fireEvent.click(toggle('表情'));
+    fireEvent.click(toggle('房主设置'));
+    expect(toggle('表情')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: '大笑' })).not.toBeInTheDocument();
+    expect(toggle('房主设置')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('form', { name: '牌桌配置' })).toBeInTheDocument();
+  });
+
+  it('非房主看不到「房主设置」这颗钮，表情照旧', async () => {
+    const room = await openTable();
+    patch(room, { isHost: false, hostId: 'peer-2' });
+    expect(screen.queryByRole('button', { name: '房主设置' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: '牌桌配置' })).not.toBeInTheDocument();
+    expect(toggle('表情')).toBeInTheDocument();
+  });
+
+  it('开局那一刻面板自动收起：不是等人自己想起来关', async () => {
+    const room = await openTable();
+    patch(room, { phase: 'IDLE' });
+    fireEvent.click(toggle('房主设置'));
+    expect(screen.getByRole('button', { name: '开始牌局' })).toBeInTheDocument();
+    // 服务端把阶段推走（这里直接推快照，等价于房主按了「开始牌局」之后的回流）
+    myTurn(room);
+    expect(screen.queryByRole('button', { name: '开始牌局' })).not.toBeInTheDocument();
+    expect(toggle('房主设置')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('断线时不给人开一个全是灰按钮的面板，速度档和回等待室照旧', async () => {
+    const room = await openTable();
+    patch(room, { phase: 'IDLE' });
+    act(() => {
+      room.dropConnection();
+    });
+    expect(toggle('表情')).toBeDisabled();
+    expect(toggle('房主设置')).toBeDisabled();
+    // 灰钮点下去不该有托盘冒出来（原生 disabled 已经拦住了 click）
+    fireEvent.click(toggle('表情'));
+    expect(screen.queryByRole('button', { name: '大笑' })).not.toBeInTheDocument();
+    // 加速是本地档、回等待室是路由，两件都不需要连接活着
+    expect(screen.getByRole('button', { name: '加速' })).toBeEnabled();
+    expect(screen.getByRole('link', { name: '回到等待室' })).toBeInTheDocument();
+    expect(screen.getByText('连接没跟上，暂时不能操作。')).toBeInTheDocument();
+  });
+});
+
 describe('牌桌 · 房主面板', () => {
+  /** 面板整块收在工具条里（他要求的「主要界面只有牌桌 / 底牌 / 操作」），碰内容前先拉开 */
+  function openHostPanel(): void {
+    fireEvent.click(screen.getByRole('button', { name: '房主设置' }));
+  }
+
   it('非房主看不到「开始牌局」和配置表单', async () => {
     const room = await openTable();
     patch(room, { isHost: false, hostId: 'peer-2' });
@@ -486,6 +579,7 @@ describe('牌桌 · 房主面板', () => {
   it('房主在 IDLE 阶段点开始牌局，上送 table:start', async () => {
     const room = await openTable();
     patch(room, { phase: 'IDLE' });
+    openHostPanel();
     fireEvent.click(screen.getByRole('button', { name: '开始牌局' }));
     expect(sentCommands(room)).toEqual([{ t: 'table:start' }]);
   });
@@ -493,12 +587,14 @@ describe('牌桌 · 房主面板', () => {
   it('开局之后开始按钮不亮（服务端会拒绝，界面先禁）', async () => {
     const room = await openTable();
     myTurn(room);
+    openHostPanel();
     expect(screen.getByRole('button', { name: '开始牌局' })).toBeDisabled();
   });
 
   it('保存配置时上送合并后的大盲 = 2 × 小盲，以及当前桌布', async () => {
     const room = await openTable();
     patch(room, { phase: 'IDLE' });
+    openHostPanel();
     fireEvent.change(screen.getByRole('spinbutton', { name: '小盲' }), { target: { value: '15' } });
     fireEvent.submit(screen.getByRole('form', { name: '牌桌配置' }));
     expect(sentCommands(room)).toEqual([
@@ -513,6 +609,7 @@ describe('牌桌 · 房主面板', () => {
   it('换桌布：只有被选中的那一档上送，绿呢蓝呢不会同时出现两个值', async () => {
     const room = await openTable();
     patch(room, { phase: 'IDLE' });
+    openHostPanel();
     fireEvent.click(screen.getByRole('radio', { name: '蓝呢' }));
     fireEvent.submit(screen.getByRole('form', { name: '牌桌配置' }));
     const sent = sentCommands(room);
@@ -523,6 +620,7 @@ describe('牌桌 · 房主面板', () => {
   it('非 IDLE 阶段配置表单不亮', async () => {
     const room = await openTable();
     myTurn(room);
+    openHostPanel();
     expect(screen.getByRole('button', { name: '保存配置' })).toBeDisabled();
   });
 });
@@ -530,6 +628,7 @@ describe('牌桌 · 房主面板', () => {
 describe('牌桌 · 表情', () => {
   it('点「大笑」上送 emoji:laugh', async () => {
     const room = await openTable();
+    fireEvent.click(screen.getByRole('button', { name: '表情' }));
     fireEvent.click(screen.getByRole('button', { name: '大笑' }));
     expect(sentCommands(room)).toEqual([{ t: 'emoji', emoji: 'laugh' }]);
   });

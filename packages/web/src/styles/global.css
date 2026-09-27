@@ -1764,7 +1764,30 @@ img.card-view {
   border-color: var(--danger);
 }
 
-/* ---------- 牌桌：表情 / 房主表单 / 结算 ---------- */
+/* ---------- 牌桌：工具条 + 表情 / 房主表单 / 结算 ---------- */
+
+/*
+ * 顶部工具条（他看手机后的改动）：回到等待室 / 加速 /（有积压时）跳过动画 / 表情 / 房主设置。
+ * 刻意不复用 `.btn-row`——那条是 `flex: 1 1 160px`，是给「弃牌 / 跟注 / 加注」这种要撑满
+ * 一行的主行动用的；这排是辅助动作，各自按文字宽度排，排不下就换行。命中区域由 `.btn`
+ * 的 `min-height: var(--tap)` 保证 48px，这里不额外收紧。
+ */
+.table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/*
+ * 「点一下才展开」那两块（表情托盘、房主面板）的收起状态由 JSX 上的 `hidden` 给。
+ * 这一条是必须的：`.card` 和 `.emote-bar` 自己都声明了 `display`，而作者样式无条件
+ * 盖过 UA 样式表的 `[hidden] { display: none }` ——不写这条，抽屉看着收起了其实还摊着，
+ * 和 M2.4 那条 `.action-panel__raise:not([hidden])` 是同一个坑（见上面的注释）。
+ */
+.card[hidden],
+.emote-bar[hidden] {
+  display: none;
+}
 
 .emote-bar {
   display: flex;

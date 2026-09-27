@@ -25,15 +25,30 @@
  *
  * M2.2 起牌桌是一张**桌面**而不是一个列表：椭圆桌布 + 一圈按相对视角落位的座位
  * （`layout.ts` 算坐标，`TableStage.tsx` 摆放）。顺序按「玩家最该先看什么」排：
- * 桌面（局势 + 人一桌看全）→ 我的底牌 → 动作条 → 表情 → 房主面板 → 摊牌结算。
+ * 桌面（局势 + 人一桌看全）→ 我的底牌 → 动作条 → 摊牌结算。
  * 底牌单独一条、不塞进 0 号座位框里，是因为竖屏满桌时那个框只有几十像素，
  * 而 SPEC §4.2 要它放大到屏宽 22%。
  *
- * 视觉与动画继续往 M2.3（座位内容）/ M2.4（操作面板）/ M3（动画）走。
+ * ## 工具条：辅助控件默认收着（他看手机后的改动）
+ *
+ * 表情、房主设置、回等待室这些**不改局势**的控件，原先各自摊着一块（一整条表情排 +
+ * 一整张房主卡），在手机上把桌面挤到要滚动才看得见。现在它们收成顶部工具条上的几颗钮，
+ * 点着才展开对应的那一条 / 那一张。
+ *
+ * 三条口径：
+ *
+ * - **不分视口**：宽屏也收。他要的是「主要界面只有牌桌、底牌和操作」这一句话，
+ *   给桌面端留一份「其实还摊着」的例外，等于让同一局里两个人的界面长得不一样。
+ * - **点一个表情就自己收**：发送之后托盘消失，玩家不必回头再点一次关闭。
+ * - **开局那一刻收起房主面板**：里面整块会被 `CONFIG_LOCKED` 锁住，继续摊着只是占地方。
+ *
+ * 展开状态是一段局部 UI state（`useState<'none'|'emote'|'host'>`，**互斥**，同屏只开一个）：
+ * 不进 localStorage、不进快照，所以刷新就回到「只留钮」的默认形。读屏侧靠
+ * `aria-expanded` + `aria-controls` 说清哪颗钮管着下面哪一块。
  */
 
 import { isValidPairingCode, normalizePairingCode, type C2S } from '@poker-room/shared/view';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { ANIM_SPEED_FAST, ANIM_SPEED_NORMAL, useAnimRig } from '../anim/rig';
@@ -99,6 +114,38 @@ export function TablePage(): ReactNode {
   // 音效走自己那两路订阅（事件 + 快照跃迁），不挂在动画队列上：减少动效时队列会跳过表演，
   // 而声音不该因此哑掉；`turn:change` 本来也不进队列。见 sound/cues.ts。
   useTableSounds();
+
+  /**
+   * 工具条的展开状态。`'none' | 'emote' | 'host'` 三值本身就写了「互斥」这件事：
+   * 同屏最多开一块，开第二块时第一块自动收。不放进快照也不进 localStorage——
+   * 刷新回到默认形是对的，玩家上一秒点开了什么不属于这一桌的事实。
+   */
+  const [openPanel, setOpenPanel] = useState<'none' | 'emote' | 'host'>('none');
+  const emotePanelId = useId();
+  const hostPanelId = useId();
+
+  /**
+   * 开局那一刻把房主面板收回去。
+   *
+   * 判据是「上一次看见的阶段还是等待，现在不是了」，不是 `phase !== 'IDLE'`：后者会把这扇门
+   * 永久关死，而房主在牌局中途仍然要能打开它看一眼那份被 `CONFIG_LOCKED` 锁住的配置
+   * （`开局之后开始按钮不亮` 那条用例钉的就是这个）。所以用 ref 记住上一份阶段，
+   * 只在跃迁的那一次动 state。
+   */
+  const phase = snapshot?.phase ?? null;
+  const lastPhase = useRef(phase);
+  useEffect(() => {
+    const previous = lastPhase.current;
+    lastPhase.current = phase;
+    if (previous === 'IDLE' && phase !== 'IDLE') {
+      setOpenPanel((current) => (current === 'host' ? 'none' : current));
+    }
+  }, [phase]);
+
+  /** 再点一次同一颗钮就是把它下面那块收回去——没有专门的「关闭」按钮要人找 */
+  const togglePanel = (kind: 'emote' | 'host'): void => {
+    setOpenPanel((current) => (current === kind ? 'none' : kind));
+  };
 
   if (!codeIsValid) {
     return (
@@ -186,7 +233,13 @@ export function TablePage(): ReactNode {
             </span>
           )}
         </div>
-        <div className="btn-row">
+        {/*
+          工具条：辅助控件各占一颗钮，点着才展开下面那一条 / 那一张。
+          `回到等待室` 是路由、`加速` 是本地动画档，两件都不需要连接活着，所以不跟着灰；
+          `表情` 和 `房主设置` 点开的是「发出去 / 存进去」的表单，断线时点开只能得到
+          一屏灰按钮，所以直接禁用。
+        */}
+        <div className="table-toolbar" role="group" aria-label="牌桌工具">
           <Link className="btn btn--ghost" to={`/r/${code}`}>
             回到等待室
           </Link>
@@ -203,13 +256,61 @@ export function TablePage(): ReactNode {
               跳过动画
             </button>
           )}
-          {offline && <span className="table-page__warn">连接没跟上，暂时不能操作。</span>}
-          {/* 服务端在最后 10 秒定向推 `timeoutWarning`；这里只转述，不自己掐表 */}
-          {snapshot.timeoutWarning !== null && (
-            <p className="table-page__warn">快超时了，服务端还有 {snapshot.timeoutWarning} 秒会替你决定。</p>
+          <button
+            className="btn btn--ghost"
+            type="button"
+            disabled={offline}
+            aria-expanded={openPanel === 'emote'}
+            aria-controls={emotePanelId}
+            onClick={() => togglePanel('emote')}
+          >
+            表情
+          </button>
+          {/* 判定还是服务端的 `isHost`（`chooseHost` 会把房主移给下一个人），这里只跟着它摆一颗钮 */}
+          {snapshot.isHost && (
+            <button
+              className="btn btn--ghost"
+              type="button"
+              disabled={offline}
+              aria-expanded={openPanel === 'host'}
+              aria-controls={hostPanelId}
+              onClick={() => togglePanel('host')}
+            >
+              房主设置
+            </button>
           )}
         </div>
+        {offline && <span className="table-page__warn">连接没跟上，暂时不能操作。</span>}
+        {/* 服务端在最后 10 秒定向推 `timeoutWarning`；这里只转述，不自己掐表 */}
+        {snapshot.timeoutWarning !== null && (
+          <p className="table-page__warn">快超时了，服务端还有 {snapshot.timeoutWarning} 秒会替你决定。</p>
+        )}
       </section>
+
+      {/*
+        展开的就是这两块，紧跟在按钮下面：点在上面的钮、变化发生在屏幕另一端，
+        看着像没响应。收起时靠 JSX 上的 `hidden` 真正退出布局与 Tab 序
+        （CSS 侧要配一条把 `display` 收回来的规则，见 global.css 里 `.card[hidden]` 那段）。
+      */}
+      <EmoteBar
+        id={emotePanelId}
+        hidden={openPanel !== 'emote'}
+        disabled={offline}
+        onEmote={(emoji) => {
+          sendCommand({ t: 'emoji', emoji });
+          // 点完一个就自己收起：表情是「发一条」，不是「留在这个界面里」
+          setOpenPanel('none');
+        }}
+      />
+
+      <HostPanel
+        id={hostPanelId}
+        hidden={openPanel !== 'host'}
+        snapshot={snapshot}
+        disabled={offline}
+        onStart={() => sendCommand({ t: 'table:start' })}
+        onSaveConfig={(config) => sendCommand({ t: 'table:setConfig', config })}
+      />
 
       <TableStage
         snapshot={snapshot}
@@ -266,15 +367,6 @@ export function TablePage(): ReactNode {
           }
         />
       </section>
-
-      <EmoteBar disabled={offline} onEmote={(emoji) => sendCommand({ t: 'emoji', emoji })} />
-
-      <HostPanel
-        snapshot={snapshot}
-        disabled={offline}
-        onStart={() => sendCommand({ t: 'table:start' })}
-        onSaveConfig={(config) => sendCommand({ t: 'table:setConfig', config })}
-      />
 
       <ShowdownPanel snapshot={snapshot} />
 
