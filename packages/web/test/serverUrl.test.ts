@@ -57,4 +57,45 @@ describe('resolveServerUrl（D-010：直连 Colyseus origin）', () => {
     const url = resolveServerUrl(env({ isDev: false, origin: 'https://poker.example.com/' }));
     expect(url).toBe('https://poker.example.com');
   });
+
+  /**
+   * 以 `/` 开头的 override 是「同源的某个前缀」，不是完整地址。
+   *
+   * 存在的理由只有一个：nginx 把静态产物和游戏服放在同一个域名下，游戏服挂在
+   * `/ws` 前缀后面（SPEC §5.1）。构建镜像时写死 `https://poker.example.com/ws`
+   * 就把域名烧进了产物——换域名、加测试环境都要重新 build。所以配置里只写 `/ws`，
+   * 域名交给浏览器在运行时补。
+   */
+  it('override 以单个斜杠开头时按同源补全，不写死域名', () => {
+    expect(resolveServerUrl(env({ isDev: false, origin: 'https://poker.example.com', override: '/ws' }))).toBe(
+      'https://poker.example.com/ws',
+    );
+  });
+
+  it('同源前缀在 dev 下也照补（拿本机页面地址去连同一台机器的代理）', () => {
+    expect(resolveServerUrl(env({ override: '/ws' }))).toBe('http://192.168.1.20:5173/ws');
+  });
+
+  it('同源前缀的尾斜杠与空白同样收敛', () => {
+    expect(
+      resolveServerUrl(env({ isDev: false, origin: 'https://poker.example.com', override: '  /ws/  ' })),
+    ).toBe('https://poker.example.com/ws');
+  });
+
+  it('origin 自带端口时补全不会把端口丢掉', () => {
+    expect(resolveServerUrl(env({ isDev: false, origin: 'http://192.168.1.20:8080', override: '/ws' }))).toBe(
+      'http://192.168.1.20:8080/ws',
+    );
+  });
+
+  /**
+   * `//host/path` 在 URL 语法里是「协议相对」的另一个地址，不是同源前缀。
+   * 把它当路径拼会变成 `https://本页//host/ws` 这种谁都不指的东西，
+   * 所以这一条走原样返回（和绝对 override 同一处理），让它去 SDK 里显式失败。
+   */
+  it('双斜杠开头不当作同源前缀', () => {
+    expect(resolveServerUrl(env({ isDev: false, origin: 'https://poker.example.com', override: '//other/ws' }))).toBe(
+      '//other/ws',
+    );
+  });
 });

@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1
+#
+# Colyseus 服务端镜像。
+#
+# 为什么直接跑源码（`tsx src/main.ts`）而不是「先编译再跑产物」：
+# `shared` 是**源码导出**（DECISIONS.md D-006），全仓相对 import 不写扩展名，
+# 而 `tsc` 又开着 `noEmit`——从来没有、也不打算有 `dist/`。细节与备选方案见 D-043。
+# 这一条决定了下面所有步骤：镜像里要的是**依赖 + 源码**，不是构建产物。
+#
+# 构建上下文必须是仓库根（compose 里已这么写），因为要吃 `pnpm-lock.yaml` 和三个包的 manifest。
+
+FROM node:24-bookworm-slim
+
+# Node 24 而不是 SPEC §5.1 写的 Node 20：Node 20 已于 2026-04 停止维护，
+# 且仓库 `package.json` 的 `engines.node` 早就要求 >=22。理由记在 D-043。
+# 装的是和开发机同一个大版本，容器里跑的 node 才是那一千五百多条用例跑过的 node。
+WORKDIR /app
+
+# 固定 pnpm 版本，不用 corepack：Node 24 的 corepack 已标记废弃，
+# 而且它会按 `packageManager` 字段再去下一趟网，构建时多一个不可复现的变量。
+RUN npm install -g pnpm@9.15.0
+
+# 先只放 manifest 和 lock，源码改动就不会让下面这层缓存失效
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/server/package.json ./packages/server/
+COPY packages/web/package.json ./packages/web/
+
+# 连 devDependencies 一起装：这样镜像里那棵 node_modules 和开发机上跑测试的那棵一致，
+# 少一套「生产安装口径」要记。想瘦身就把 `pnpm install` 改成 `pnpm install --prod`
+# （tsx 已经是 dependencies，所以改得动），代价是容器里没有 vitest 了。
+RUN pnpm install --frozen-lockfile
+
+COPY packages/shared ./packages/shared
+COPY packages/server ./packages/server
+
+# 端口与健康检查：`/health` 由 `packages/server/src/routes.ts` 提供，
+# 容器探活直接打它，所以「compose 里 healthcheck 绿」等价于「HTTP 层活着」。
+# 默认端口 2567，被 `PORT` 覆盖时下面两处都读同一个变量。
+ENV NODE_ENV=production \
+    PORT=2567 \
+    LOG_LEVEL=info
+EXPOSE 2567
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD node -e "const p=process.env.PORT||2567;fetch('http://127.0.0.1:'+p+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+# 以非 root 跑：node 官方镜像自带 uid 1000 的 `node` 用户。
+# 源码层是 root 属主但只需要读，所以不 chown 整棵树；只有需要写的目录才给权限（v1 无持久化，没有）。
+USER node
+
+CMD ["pnpm", "--filter", "@poker-room/server", "start"]

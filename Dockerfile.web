@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+#
+# 前端镜像：构建阶段产出静态文件，运行阶段只有 nginx。
+#
+# `VITE_SERVER_URL=/ws` 是**构建期**烧进去的（vite 把 import.meta.env 编进 bundle），
+# 不是运行时读的。值是同源前缀，所以换域名、换协议（http/https）都不用重建：
+# 前端只认「同源 + /ws」，跨域和 wss 升级全交给 nginx。理由见 DECISIONS.md D-043。
+
+FROM node:24-bookworm-slim AS build
+
+WORKDIR /app
+RUN npm install -g pnpm@9.15.0
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.base.json ./
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/server/package.json ./packages/server/
+COPY packages/web/package.json ./packages/web/
+
+# 前端构建要 vite / @vitejs/plugin-react / typescript，全在 devDependencies 里，
+# 所以这里不能加 --prod。
+RUN pnpm install --frozen-lockfile
+
+COPY packages/shared ./packages/shared
+COPY packages/web ./packages/web
+
+# 值就是 nginx 里那条 `location /ws/`，两边必须对上（deploy/nginx/*.conf）
+ARG VITE_SERVER_URL=/ws
+ENV VITE_SERVER_URL=$VITE_SERVER_URL
+
+# `web` 的 build 脚本已经带了 `tsc --noEmit`，类型不过就出不了包
+RUN pnpm --filter @poker-room/web build
+
+FROM nginx:1.27-alpine AS runtime
+
+# 镜像自带 HTTP 版站点配置，单独 `docker run` 这个镜像也能服务。
+# 启用 HTTPS 时不必重建：compose 里把同目录的 https.conf 覆盖挂到同一路径（见 README「部署」）。
+COPY deploy/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY --from=build --chown=nginx:nginx /app/packages/web/dist /usr/share/nginx/html
+
+# 80 与 443 都由 compose 映射；443 在启用 HTTPS 之前没人监听，映射了也不报错
+EXPOSE 80 443
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget -q --spider http://127.0.0.1/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

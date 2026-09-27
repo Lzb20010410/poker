@@ -9,7 +9,7 @@
  * `@colyseus/testing` 去起，而不会顺带占掉 2567 端口。
  */
 
-import { logger, Server } from 'colyseus';
+import { Server } from 'colyseus';
 
 import { PokerRoom } from './rooms/PokerRoom';
 import { registerRoutes } from './routes';
@@ -19,7 +19,7 @@ export const SERVER_PACKAGE = '@poker-room/server' as const;
 /** 房间类型名。客户端 `joinOrCreate('poker')` 用的就是它 */
 export const ROOM_TYPE_POKER = 'poker' as const;
 
-/** 开发环境默认端口。web 包的 vite proxy 指向这里，改动要同步 */
+/** 默认端口。web 端 dev 下用 `location.hostname:2567` 连它（D-010），改动要同步 */
 export const FALLBACK_PORT = 2567;
 
 /**
@@ -44,13 +44,10 @@ export function createGameServer(): Server {
   return gameServer;
 }
 
-/** 启动并监听。`main.ts` 调它，返回实例方便优雅退出时拿句柄 */
-export async function startServer(port: number = resolvePort()): Promise<Server> {
+/** 启动并监听。`main.ts` 调它；端口由它先用 `resolvePort()` 解出来，日志也在那边打 */
+export async function startServer(port: number): Promise<Server> {
   const gameServer = createGameServer();
   await gameServer.listen(port);
-  logger.info(
-    `[poker-room] 已启动，监听端口 ${port}；WebSocket ws://localhost:${port}，健康检查 http://localhost:${port}/health`,
-  );
   return gameServer;
 }
 

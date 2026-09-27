@@ -1,0 +1,27 @@
+# 构建镜像不需要、且会污染缓存层的东西
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# 本地环境变量绝不进镜像（compose 用 --env-file 在运行时注入）
+.env
+.env.*
+!.env.example
+
+# 版本库与工具目录
+.git/
+.superpowers/
+.vscode/
+.idea/
+
+# 日志与系统文件
+*.log
+.DS_Store
+Thumbs.db
+
+# 部署说明里的证书目录只挂在运行时，不参与构建
+deploy/certs/

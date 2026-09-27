@@ -17,6 +17,7 @@
  *   7. 前端的 shared 导入边界：web 只走 `shared/view`，且 view 的闭包不含 pokersolver
  *   8. server 测试的 `boot()` 端口互不冲突（`@colyseus/testing` 有个写死 2568 的重载）
  *   9. 全仓库源码不得出现真钱交易面（充值 / 提现 / 兑换 / payment / withdraw …）
+ *  10. 声明了 `start` 的包，其入口文件必须真的存在于源码树（M4.3 那个 `dist/main.js` 教训）
  *
  * 关于注释的处理（这里踩过坑，别改坏）：
  *   - 规则 2/3/4 和 `: any` 检查针对的是**代码构造**，必须在「剥离注释后的源码」上跑。
@@ -413,6 +414,57 @@ if (failures.length === moneyFailuresBefore) {
   pass('no-real-money', `扫描 packages 下 ${allFiles.length} 个 ts/tsx 文件的代码（含字符串字面量），无真钱交易面`);
 }
 
+// ---------- 10. `start` 指向的入口必须真的存在（DECISIONS.md D-043） ----------
+/**
+ * 起因：`packages/server` 的 `start` 长期写着 `node dist/main.js`，而它的 `build`
+ * 是 `tsc -p tsconfig.json` 且 tsconfig 开着 `noEmit: true` —— **`dist/` 从来没有存在过**。
+ * 全仓测试绿、三包构建绿、`pnpm verify` 退出码 0，`pnpm start` 却必然起不来，
+ * 一路活到 M4.3 做镜像时才撞见。那条遗留问题要求「修完后把它变成机器规则」，就是这里。
+ *
+ * 判据是**入口在源码树里看得见**，不是「构建后有产物」：这条跑在 `pnpm lint` 阶段，
+ * 那时 `dist/` 本来就该不存在（shared 是源码导出 D-006，web 的 dist 是一次性产物）。
+ * 于是 `tsx src/main.ts` 过、`node dist/main.js` 红；想让后者变绿只有一条路——**真的产出它**。
+ */
+const START_ENTRY = /(?:^|\s)([\w@.\-/\\]+\.(?:ts|tsx|js|mjs|cjs))(?=\s|$)/g;
+
+/** 从一条 npm script 里挑出像「入口文件」的 token：参数（`-` 开头）、包名（`@` 开头）、越界路径都不算 */
+function startEntryFiles(command) {
+  const out = [];
+  for (const match of command.matchAll(START_ENTRY)) {
+    const token = match[1];
+    if (token.startsWith('-') || token.startsWith('@') || token.includes('..')) continue;
+    out.push(token);
+  }
+  return out;
+}
+
+const manifests = [join(ROOT, 'package.json')];
+for (const name of readdirSync(join(ROOT, 'packages'))) {
+  const manifest = join(ROOT, 'packages', name, 'package.json');
+  if (statSync(manifest, { throwIfNoEntry: false })?.isFile()) manifests.push(manifest);
+}
+
+const entryFailuresBefore = failures.length;
+const livingEntries = [];
+let startScripts = 0;
+for (const manifest of manifests) {
+  const pkg = JSON.parse(readFileSync(manifest, 'utf8'));
+  const start = pkg.scripts?.['start'];
+  if (typeof start !== 'string') continue;
+  startScripts += 1;
+  for (const entry of startEntryFiles(start)) {
+    if (statSync(join(manifest, '..', entry), { throwIfNoEntry: false })?.isFile()) {
+      livingEntries.push(`${pkg.name ?? rel(join(manifest, '..'))} → ${entry}`);
+    } else {
+      fail('entry', `${rel(manifest)} 的 start 指向 ${entry}，可那个文件不存在（整条命令：\`${start}\`）——` +
+        '不产物的 build（noEmit）配不上 dist 入口，要么真的产出它，要么用能跑源码的 runner（见 D-043）');
+    }
+  }
+}
+if (failures.length === entryFailuresBefore) {
+  pass('entry', `${startScripts} 个声明了 start 的包，入口都在源码树里（${livingEntries.join('；') || '没有 start 脚本'}）`);
+}
+
 // ---------- 自检：确认实参切分能认出两种 boot 写法 ----------
 {
   const probe = [
@@ -447,6 +499,26 @@ if (failures.length === moneyFailuresBefore) {
   else if (flagged.join(',') !== '1,2,3')
     fail('selftest', `真钱自检命中 ${flagged.join(', ') || '无'}，应为 1,2,3（代码里的 充值/Recharge/withdraw 各一条）`);
   else pass('selftest', '真钱名单：代码与 UI 文案命中，注释里的禁令与免责声明不命中');
+}
+
+// ---------- 自检：确认 start 入口抽取「该抓的抓到、参数与包名不误伤」 ----------
+{
+  const cases = [
+    ['tsx src/main.ts', 'src/main.ts'],
+    ['node dist/main.js', 'dist/main.js'],
+    ['node --import tsx src/main.ts', 'src/main.ts'],
+    ['pnpm -r build --filter @poker-room/server', ''],
+    ['tsc -p tsconfig.json', ''],
+    ['node ../../etc/passwd.js', ''],
+  ];
+  const wrong = cases
+    .map(([command, expected]) => {
+      const got = startEntryFiles(command).join(',');
+      return got === expected ? '' : `${command} → 「${got}」，应为「${expected}」`;
+    })
+    .filter(Boolean);
+  if (wrong.length) fail('selftest', `start 入口抽取判错：\n        ${wrong.join('\n        ')}`);
+  else pass('selftest', 'start 入口抽取：源码入口 / dist 入口 / 多参数形式 / 纯参数与包名 / 越界路径各判对');
 }
 
 // ---------- 自检：确认注释剥离没有把真代码也剥掉 ----------
