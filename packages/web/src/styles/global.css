@@ -185,6 +185,30 @@ body {
   color: var(--text-muted);
 }
 
+/*
+ * 音效开关复用 `.btn` 的全部外观（§4.6 的按钮只有一种长相，不必为它另起一套），
+ * 这里只补两件事：顶到页头最右，以及把字号收小一点。
+ *
+ * `margin-left: auto` 而不是 `justify-content: space-between`：页头是 `flex-wrap`，
+ * 竖屏满行时开关会换到第二行，那时 `space-between` 会把它甩到该行最左，而 auto 边距
+ * 让它无论落在哪一行都贴着右边缘——拇指够得着、位置恒定，玩家不用找。
+ *
+ * 高度不再单独设：`.btn` 已经带 `min-height: var(--tap)`（48px），满足 SPEC §4.2 的
+ * 「可点目标 ≥44px」。
+ */
+.app__sound {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* 字色提回来一点，靠 hover 那套 `filter: brightness()` 是亮不动一个 muted 色的 */
+@media (hover: hover) {
+  .app__sound:not(:disabled):hover {
+    color: var(--text);
+  }
+}
+
 .app__main {
   flex: 1;
   width: 100%;
@@ -2133,6 +2157,15 @@ img.card-view {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 3px;
+}
+
+/* 音效试听那一排（M4.2）。五颗按钮一排摆开，触控高度由 `.btn` 的 `min-height: var(--tap)`
+   带来（48px，SPEC §4.2）。不套 `.asset-tile`：那一格是为"一张图 + 一行小字"设计的，
+   按钮放进去会被它的 padding 和居中轴挤成一个奇怪的方形卡片。 */
+.asset-sounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .asset-strip img {

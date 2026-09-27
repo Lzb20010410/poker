@@ -7,11 +7,15 @@
  * 页头固定写着「朋友局 · 纯虚拟筹码」：这是 DECISIONS.md D-000 的定位声明，
  * 开源当作品集时 README 顶部也要有同一句话。放在每个页面都看得见的地方，
  * 比只写在 README 里更不容易被人误当成能真钱对赌的东西。
+ *
+ * 页头最右边是音效开关（M4.2）：三个页面都有，玩家进桌之前就能先试一声，
+ * 不必为了静音跑回大厅。
  */
 
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { SoundToggle } from './sound/SoundToggle';
 import { useRoom } from './state/RoomContext';
 import { NoticeStack } from './lobby/components/NoticeStack';
 import { StatusBanner } from './lobby/components/StatusBanner';
@@ -30,6 +34,7 @@ export function AppShell({ children }: AppShellProps): ReactNode {
           私局德州
         </Link>
         <span className="app__tagline">朋友局 · 纯虚拟筹码 · 不涉及任何真实价值交换</span>
+        <SoundToggle />
       </header>
 
       <main className="app__main">

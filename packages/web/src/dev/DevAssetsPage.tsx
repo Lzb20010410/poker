@@ -16,6 +16,14 @@
  *   才能暴露 id 撞名（`pokerTable.test.ts` 里那条断言的可视化版本）。
  * - **头像是懒加载的**：这一页第一次打开会先看到 8 个占位块、随后脸才出现。
  *   那是 D-020 的正常行为，不是这个页面的 bug。
+ *
+ * ## M4.2 之后这一页多了一个前提：要有 `SoundProvider`
+ *
+ * 音效的试听按钮放在这一页最上面（`TASKS.md`:316 那条「手机 Safari 与 Chrome 都能出声」
+ * 在牌桌上没法验——你得先凑齐一桌人打到发牌那一刻；在这里是点一下）。它读的是
+ * `useSound()`，于是这一页从「谁都能单独渲染」变成「必须挂在 Provider 下面」，
+ * 和 `AppShell` 需要 `RoomProvider` 是同一件事。生产里 `App.tsx` 一直套着，
+ * 只有单独渲染这一页的用例要自己套。
  */
 
 import { useState, type ReactNode } from 'react';
@@ -27,6 +35,8 @@ import { cardFaceDataUri } from '../assets/cardFaces';
 import { CHIP_DENOMINATIONS, chipDataUri } from '../assets/chips';
 import { FELT_LABELS, tableFeltDataUri } from '../assets/pokerTable';
 import { AvatarPreview } from '../lobby/components/AvatarPreview';
+import { SOUND_LABELS, SOUND_NAMES } from '../sound/synth';
+import { useSound } from '../state/SoundContext';
 import { cardText } from '../table/components/CardView';
 
 /** 按花色成组、每组从 2 到 A。牌桌上看牌就是按这个顺序认的 */
@@ -41,6 +51,7 @@ const SMALL_FACE_HEIGHT = 24;
 export function DevAssetsPage(): ReactNode {
   const [seedDraft, setSeedDraft] = useState('');
   const [customSeed, setCustomSeed] = useState<string | null>(null);
+  const { muted, play } = useSound();
 
   return (
     <div className="dev-assets">
@@ -50,6 +61,26 @@ export function DevAssetsPage(): ReactNode {
         牌面素材来自 <code>hayeah/playing-cards-assets</code>（MIT，上游牌面本身为 public domain），
         出处与许可证见 <code>src/assets/LICENSE-playing-cards.txt</code> 与 DECISIONS.md D-023。
       </p>
+
+      {/*
+        试听区排在最前面，不是随手放的：这一页在手机上打开时，五十二张牌面要滚很久才到底，
+        而「手机 Safari 能不能出声」这条验收项只需要点一下。放在第一屏，点完就走。
+      */}
+      <section className="asset-section" aria-label="音效">
+        <h2 className="asset-section__title">音效 5 声（Web Audio 现场合成，产物里 0 字节音频）</h2>
+        <div className="asset-sounds" data-assets="sounds">
+          {SOUND_NAMES.map((name) => (
+            <button className="btn" key={name} onClick={() => play(name)} type="button">
+              {SOUND_LABELS[name]}
+            </button>
+          ))}
+        </div>
+        <p className="dev-assets__hint">
+          {muted
+            ? '当前是静音档（页头那颗开关可以取消）。静音时点这几颗什么都不响是设计如此，不是坏了。'
+            : '第一次点击本身就是浏览器的「用户手势」，所以第一下就该出声。没有声音 → 看页头开关是不是静音档；有声音但刺耳或不贴图 → 判的是音色表，见 src/sound/synth.ts。'}
+        </p>
+      </section>
 
       <section className="asset-section" aria-label="牌面">
         <h2 className="asset-section__title">牌面 52 张</h2>

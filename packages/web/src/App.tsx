@@ -12,6 +12,11 @@
  *
  * `ProfileProvider` 在 `RoomProvider` 外面：进房要用到昵称和头像 seed。
  *
+ * `SoundProvider` 在两者之间：它谁都不依赖（只依赖 localStorage 和浏览器的手势），
+ * 但 `AppShell` 里的音效开关要用它，所以必须在 shell 外面。放 `RoomProvider` 外侧
+ * 而不是内侧，是为了让「切页面 / 换房间」都不重挂它——音效的手势状态和静音档
+ * 是整个应用一份，不跟着连接走。
+ *
  * ## 路由
  *
  * | 路径 | 页面 | 说明 |
@@ -39,6 +44,7 @@ import { LobbyPage } from './lobby/LobbyPage';
 import { WaitingRoomPage } from './lobby/WaitingRoomPage';
 import { ProfileProvider } from './state/ProfileContext';
 import { RoomProvider } from './state/RoomContext';
+import { SoundProvider } from './state/SoundContext';
 import { TablePage } from './table/TablePage';
 
 /**
@@ -65,13 +71,15 @@ export function App(): ReactNode {
   return (
     <ErrorBoundary>
       <ProfileProvider>
-        <RoomProvider>
-          <BrowserRouter>
-            <AppShell>
-              <AppRoutes />
-            </AppShell>
-          </BrowserRouter>
-        </RoomProvider>
+        <SoundProvider>
+          <RoomProvider>
+            <BrowserRouter>
+              <AppShell>
+                <AppRoutes />
+              </AppShell>
+            </BrowserRouter>
+          </RoomProvider>
+        </SoundProvider>
       </ProfileProvider>
     </ErrorBoundary>
   );

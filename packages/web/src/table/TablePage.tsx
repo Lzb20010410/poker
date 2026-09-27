@@ -52,6 +52,7 @@ import { TableStage } from './components/TableStage';
 import { phaseLabel } from './format';
 import { useCountdown } from './useCountdown';
 import { useSeatEmotes } from './useSeatEmotes';
+import { useTableSounds } from './useTableSounds';
 
 /** 快照里还没有我这一行时（刚进来、还没被服务端写入）用这份：什么都不亮 */
 const NOTHING_LEGAL: LegalActionsView = {
@@ -95,6 +96,9 @@ export function TablePage(): ReactNode {
    */
   const anim = useAnimDirector(animRig.renderer, snapshot?.reveals ?? null);
   const emoteSink = useSeatEmotes();
+  // 音效走自己那两路订阅（事件 + 快照跃迁），不挂在动画队列上：减少动效时队列会跳过表演，
+  // 而声音不该因此哑掉；`turn:change` 本来也不进队列。见 sound/cues.ts。
+  useTableSounds();
 
   if (!codeIsValid) {
     return (
