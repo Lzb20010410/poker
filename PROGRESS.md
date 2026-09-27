@@ -10,14 +10,14 @@
 
 | 项 | 值 |
 |---|---|
-| 当前里程碑 | **M4 · 打磨与上线，M4.1 断线重连与容错 + M4.2 音效 两条代码与自动化验收完成**（M4.2：五个音效全部 **Web Audio 现场合成**，产物里 **0 字节音频**，静音档进 localStorage，牌桌两路触发（事件流 + 快照跃迁），页头开关，`/dev/assets` 顶部加了五颗试听按钮；见【M4.2】记录与 **D-041**）。**全仓 1549 条用例绿、`pnpm verify` 退出码 0。代码意义上现在就是一个「正常可游玩的版本」**。仍欠的全是眼睛与耳朵的活：**M4.2 那条「手机能不能出声 + 音色像不像」（新，验法就一句：手机开 `/dev/assets` 点五下）**、M4.1 那三条手动项（刷新续座 / 断网 30s / 断网 120s）、M3.2 回放器「必须好用」只有你能判、M2.2–M2.5 手机那六条 ⏳、上一轮新加的两条观感（下面「人工验收缺口」） |
-| 下一个任务 | **等你验收 M4.2**（四条验收项的自检在【M4.2】记录里；⏳ 那条只能你判——手机开 `http://<电脑IP>:5173/dev/assets` 点最上面那五颗按钮，**第一次点击本身就是手势，第一下就该出声**）。**有一条要你一句话**：`SPEC.md:320` 写的是「5 个短音效（各 <30KB，ogg/mp3）」，我做成了代码合成，SPEC 那一行我没动（D-041 记了理由与代价）——认，我改 SPEC 那一句；不认，要换真录音就得先解决来源许可 + 编码器依赖，那是新的技术栈偏离。你点头之后是 **M4.3 · Docker 与部署**（硬前提已登记：server 的 `build` 是 `tsc --noEmit`、`dist/` 不存在、`pnpm start` 现在必然起不来）。**M4 按 AGENTS.md 规则 4：做完一条停一条**，不批量。M4.1 与 M3 那几条如果还没验，一并等你的话。另有一件不阻塞但等你一句话的：`TASKS.md:247` 那句「积压 >5」现在与实现（12）不一致，规则 8 禁止我改任务描述，你说改我就改 |
-| 已完成任务数 | **22 / 24**（M4.2 音效代码与自动化验收完成，21 → 22，其中「手机能出声/音色像不像」这一条只能你判；M4.1 断线重连与容错代码与自动化验收完成，20 → 21，其中三条手动验证项只能你判；M3.1–M3.5 五项代码与自动化验收完成，15 → 20；其中 M3.2 的目视验收与 M3.4 的最后一条仍挂着，见【M3.1–M3.5】那条记录的自检。下面从「10 / 24」起是 M1 / M2 的历史累述，保留不动：10 / 24（M1.1–M1.6 代码与自动化验收完成；M1.6 已用真浏览器 + 真服务端 + 终端牌手跑通联机）+ M1 已知问题修复**六轮** + RULES-SPEC §7 十四条自检**全部拿到变异探针实证**（第四轮审出并修掉隐私测试网的时间性漏洞，第五轮补跑 8 个探针覆盖剩余 6 条）+ **`TASKS.md` M1.1–M1.6 验收标准逐条对账**（45 条：M1.1 7 / M1.2 7 / M1.3 9 / M1.4 10 / M1.5 7 / M1.6 5，其中 44 条有具名用例或代码行证据，1 条 = `sidepot.ts` 覆盖率门被权限层拦下，只能你跑；M1.6 的「手动验证」那条本身只能你做）+ **第六轮把探针扫到前端翻译层与底牌铁律**：**9 个探针，5 条真缺口**（未知枚举兜底方向、`isMyTurn` 的双向 null 陷阱、非有限数字外泄、迟到底牌的事后对账缺反例、换座之后才到达的亮牌会绑错人）、**3 条证明现有网有效**、1 条由本轮新增用例当场兜住；另挖出 1 个当前实现里的真 bug（垃圾 `currentTurn` 会翻译成"在等 0 号位"，已修），补 12 条用例把这两层纳入网内 + **M1 收尾三席独立审查已落地**（底牌链路 / 真实德州规则 / 房间生命周期，三份仓库外报告逐条判定：修 4 处、5 次变异探针、6 处"不改"的理由写进代码或 `RULES-SPEC.md`，隐私断言从"只认字段名"改成"按牌的内容比集合"，另新增 §5.6 摊牌亮牌语义判定；见【M1 收尾 · 三席审查落地】）+ **M2.1 · SVG 资产库代码与自动化验收完成**（先记 11 / 24 的代码那一半，目视那一半当时还欠着。52 张牌面 + 自绘牌背/6 档筹码/桌面 + 8 个预置头像 + `/dev/assets` 验收页，29 条新用例、12 次变异探针，见【M2.1 · SVG 资产库】）+ **人头牌换代：12 张 J/Q/K 从 simple 版换成自绘镜像双人**（新增 5 条结构断言，见【M2.1 追加 · 人头牌换代】）。**M2.1 的目视验收已于 2026-09-26 通过 → M2.1 整项结案（11 / 24）** + **M2.2 牌桌布局 / M2.3 座位组件 / M2.4 操作面板 / M2.5 整体视觉打磨 四项代码与自动化验收完成（15 / 24 的代码那一半）**：新增 14 个文件、删掉 `ActionBar.tsx`，web 用例从 208 涨到 329（`tableLayout` 66 / `seatContent` 13 / `actionPanel` 23 / `raise` 10 / `devTable` 3 / `view` +1 / `table` 改到 39），shared 加 1 条桌布枚举校验（532），server 加 1 条桌布广播（57）。目视那一半还欠着，见【M2.2】到【M2.5】四条记录 |
-| 测试状态 | 主代理全仓 **1549/1549**（shared **532** / web **960** / server **57**），**77 个测试文件（26 + 45 + 6）**；串行 `pnpm verify` 退出码 **0**（2026-09-27 M4.2 本轮，lint 零错 + 架构守卫 11 项全过）。**本轮 +101、+5 个文件**：`soundSynth` 26 / `soundCues` 27 / `soundPlayer` 11 / `soundSettings` 6 / `soundWiring` 24，另 `devAssets` +7（试听区：顺序与文案 1 + 逐颗按钮各响自己那一声 5 + 静音档下不响 1）。**上一版 1448/1448、web 859**（M4.1 那轮 +5）。**两轮加起来没有一条用例被删掉换数**；`devAssets` 原 8 条：7 条的渲染入口统一改走 `renderPage()`（共 8 处调用，头像那条本来就渲染两次），路由那条外面套 `SoundProvider`；**断言一条没动**。**方法教训本轮又添一条**（M1 记下、D-029 与 M4.1 各踩实一次，这次是新形态）：逐包 `test` 绿**不等于** `verify` 绿，收尾一律跑全量；**而且不要在 `pnpm verify` 旁边并行起第二个测试进程**——本轮我把两者叠跑，`seatContent` 那条逐帧滚动断言就假红了（两个 vitest 抢同一批 rAF，中间帧被跳过 = 瞬变）。串行重跑即绿。`ChipCount` 的数字是 gsap 滚过去的，改值后**同步断言新数字必红**，必须 `waitFor` |
-| 构建状态 | **只有 web 真的产出产物**：`packages/web/dist` 存在，首屏入口 **`1,171.24 kB / gzip 260.74 kB`**、CSS **`26.36 kB / gzip 5.82 kB`**（2026-09-27 M4.2 本轮 `pnpm build` 实测）。比上一版（1,166.42 / 258.27）涨 **4.82 kB raw / 2.47 kB gzip**，这就是整条音效链路的代价——**五个音效在产物里是 0 字节**（合成，不是音频文件），见 D-041。再往前那 0.80 kB 是 M4.1 那几句中文。头像库仍是延迟 chunk（`372.94 kB / gzip 116.79` + `7.14 kB / gzip 2.89`），产物内 `pokersolver` 归零。Vite 仍在打「chunk > 500 kB」告警——没去调 `chunkSizeWarningLimit` 压掉它，那是唯一能看见这笔账的地方（牌面内联贵 47.5 kB gzip，退路见 D-023）。**shared 与 server 的 `build` 都是 `tsc --noEmit`，两边 `dist/` 都不存在**：shared 是设计如此（D-006 源码导出），server 的 `start`（`node dist/main.js`）因此**必然起不来**——"server 构建通过"只是"类型检查通过"，这条是 M4.3 的硬前提（遗留问题） |
-| 人工验收缺口 | **M4.2 新增一条只能你做的（而且是耳朵）**：手机开 `/dev/assets`，点最上面那五颗（发牌 / 筹码 / 公共牌 / 轮到你 / 胜利）→ **能不能出声**（第一次点击本身就是手势，第一下就该响）+ **像不像牌桌的声音**。刺耳、太薄、盖住节奏都算不认，改的只有 `sound/synth.ts` 那张 `SOUND_TIMBRES`。顺手判一下「静音时点了确实什么都不响」。**M4.1 那三条仍欠**（逐条验法在【M4.1】的「怎么手动验」，手机那条要横竖屏各刷一次）：① 游戏中刷新 → 回同一个座位、底牌还在、**不补播动画**；② 断网 30 秒 → 自己接回来；③ 断网超过 120 秒 → 别人那侧看到你离座、座位空出来。（第 4 条「服务端重启后显示已失效并引导回大厅」已由代码 + 用例覆盖，但仍请你亲手把进程杀掉刷一次看看那句话顺不顺眼。）**上一轮 M3 收尾那两条仍要判**：① 手机竖屏 6/8 人那一档现在**会**演发牌了，但起飞点是牌堆本来该在的**空白处**，牌像从空气里飞出来——接受吗？不接受的退路是回到 D-029 候选③（画占位牌堆，要重开几何）。② 我手上的筹码现在画在「我的底牌」旁边（最多 5 枚 + `×N`），座位那一格里**不再有**我的余额数字——顺手也请判竖屏满桌时那一叠会不会把两张牌挤远。**积压 12 段连演多久算长**也要你判：最坏情况操作锁十几秒，出口是那颗一直可点的「跳过动画」。另加 M3 原批的两条（回放器「必须好用」、12 段口径）与 M2 那六条 ⏳（竖屏 1.7:1 够不够椭圆 / 紧凑档密度 / 撤掉 44px 触控高度后「入座」点不点得着 / 竖屏底池只显数字 / 手机不画牌堆 / 横屏桌面只占屏宽 38%）。M1 的：真机横竖屏、截图观感、亲手抓包查隐私（~~`pnpm test:cov` 补覆盖率门~~ **2026-09-27 他已实跑并结案**：`sidepot.ts` statements 100%、shared 全包 statements 577/577=100%，`TASKS.md:112` 那条原文成立；`% Branch` 97.36 是 `sidepot.ts:54` 不可达防御分支，门槛本就按 95 设，要不要删掉它另判） |
-| 工作树状态 | **2026-09-27 本轮实测**：分支 `main`，HEAD 停在 `66959f7`（M4.1 + M3 收尾修订，上一轮提交，**未 push**）。`git status --porcelain` **18 条**（`-uall` 展开未跟踪目录后是 **23 条 = 9 已修改 + 14 新建**；那 18 与 23 的差是 `packages/web/src/sound/` 整个目录未跟踪，git 默认只报目录一条）。**M4.2 新建 14 个文件**：`src/sound/` 6 个（`synth.ts` / `player.ts` / `browser.ts` / `settings.ts` / `cues.ts` / `SoundToggle.tsx`）+ `src/state/SoundContext.tsx` + `src/table/useTableSounds.ts` + 测试 6 个（`fakeAudio.ts` + `sound{Synth,Player,Settings,Cues}.test.ts` + `soundWiring.test.tsx`）。**修改 9 个**：`App.tsx` 套 Provider、`AppShell.tsx` 挂开关、`TablePage.tsx` 调 `useTableSounds()`、`global.css` 两处、`dev/DevAssetsPage.tsx` 试听区、`test/harness.tsx` 加 `sound` 注入口、`test/devAssets.test.tsx` +7 条并统一走 `renderPage()`、`DECISIONS.md` 新增 D-041、`PROGRESS.md`。本轮**已提交、没有 push**：他在验收 M4.2 之前先给了一句「先提交 M4.2 再改动」，授权的是 commit；push 仍是单独一件事，这两轮都没有（`origin/main` 停在 `9e1b8c0`，本地在它上面多了 `66959f7`（M4.1）与这一条（M4.2）两个提交）。这一条自己的提交号写在下一轮的账本里 —— 本行写于提交之前，写不了自己的号。**上一版这一格写的是「HEAD 停在 `9e1b8c0`、26 条未提交」，那是 M4.1 当时的状态**：M4.1 与 M3 收尾那批现在已合成一个提交 `66959f7`，中间提交仍**不保证单独可编译**（同一文件被两个里程碑改过时无法回溯拆分），只有 tip 是实测绿的那棵树。 |
-| 最后更新 | 2026-09-27（本轮：M4.2 音效 + D-041；上一轮是 M4.1 断线重连与容错 + D-040） |
+| 当前里程碑 | **M4 · 打磨与上线，M4.1 断线重连 / M4.2 音效 / M4.3 Docker 与部署 三条代码与自动化验收完成**（本轮 M4.3：server 镜像改成 **`tsx src/main.ts` 直跑源码**（因为 `shared`/`server` 两边 `noEmit`、`dist/` 从来就不存在，`node dist/main.js` 是句必然失败的话——**这是本轮修掉的第一个真问题**，见 **D-043** 第 1 条）；自写 88 行结构化 JSON 日志（`logging.ts`，0 新依赖）；web 镜像多阶段构建 + nginx 静态托管与 `/ws` 反代（含 WebSocket 升级）；`docker-compose.yml`（server 只 `expose` 不 `publish`，web 才开 80/443，`restart: unless-stopped`，`depends_on: service_healthy`）+ Let's Encrypt 那套（certbot 走 `profiles: [tls]`）+ `README.md` 新增「部署 / 谁能连进来 / 上 HTTPS / 排错」四节。**并且实测真起了进程：`/health` 返回 200、启动那行 JSON 打在 stdout**）。中间还插了一轮他口头提的牌桌页样式反馈（辅助控件收进工具条，见 **D-042**），以及一件本轮挖出并**当场改掉一处错误安全陈述**的事：`createOriginGate` 挡不住 `/matchmake`（Colyseus 的 cors + matchmake 注册在 `Server({express})` 回调**之前**，实测 evil Origin 拿 200 + roomId），真正的同源闸门已经挪到 nginx，文档与注释里那句「这一层挡得住」是我写错的，已改。**全仓 1580 条用例绿、串行 `pnpm verify` 退出码 0。代码意义上现在就是一个「正常可游玩、且有部署路径的版本」**。仍欠的全是眼睛、耳朵和一台真服务器的活：**本轮三条只有他能做的（`docker compose up` 跑通完整对局 / VPS 上 HTTPS+WSS / 手机走 4G·5G 跨网打一局——我的环境里 Docker daemon 没开，且部署是他授权才做的事）**、上一轮三条纯眼睛的（抽屉到底收没收集 / 工具条换行好不好看 / 展开时把桌面顶下去可不可接受）、**M4.2 那条「手机能不能出声 + 音色像不像」（验法就一句：手机开 `/dev/assets` 点五下）**、M4.1 那三条手动项（刷新续座 / 断网 30s / 断网 120s）、M3.2 回放器「必须好用」只有你能判、M2.2–M2.5 手机那六条 ⏳ |
+| 下一个任务 | **等你验收 M4.3**，而它六条验收标准里有**三条我这边做不了**（不是没做，是需要一台开着的 Docker daemon 和一台真的 VPS）：① 本地 `docker compose up` 跑通完整对局——我的环境 `docker` CLI 在（29.3.1 / Compose 5.1.0）但 **daemon 没开**，而且起容器属于「副作用出这个工作树」，按规矩要你点头，我没擅自开；我把能测的都测了：`docker compose config` 退出码 0、`/health` 在真进程上实测 200；② VPS 上 HTTPS + WSS；③ 手机走 4G/5G（跨网）打一局。**另外三条 ✅**：`/health` 200（实测 + 10 条用例 + HEALTHCHECK 已串起来）、`restart: unless-stopped`（写在 compose 里、`config` 验过语义）、README 顶部合规声明（本来就在）。**四个要你一句话的问题本轮全部结掉了（他说「都没问题，你来决定」）**：<br>**a. Node 24 —— 已追认**，`SPEC.md` §5.1 那一行改到 24 并留注释指向 D-043 第 2 条（20 线 2026-04 已停维、仓库 `engines.node` 本就是 `>=22`）。<br>**b. nginx 那两份 conf 仍一行机器证据都没有**——这条不是裁决能解决的，环境里没有 nginx 二进制、`nginx -t` 没跑过，`/ws` 反代通不通**只有真起一次才知道**（要么他开 Docker Desktop 让我本地跑，要么上 VPS）。<br>**c. 音效按代码合成定案**，`SPEC.md` §4.7 原句「各 <30KB，ogg/mp3」已改写为实现口径 + 注释指向 D-041；真录音那条路仍然开着，前置代价写在 D-041。<br>**d. `TASKS.md:247` 的口径差**——选「加指针注释、不改他写的数字」（规则 8 保护的是任务描述本身，而"读的人会以为 5 是口径"这一件事一条注释就够了）。<br>**e. 顺带结掉**：`SPEC.md` §5.3 那句「web 通过 vite proxy 连 ws」是错的（vite 故意没配 proxy，见 D-010），已按实现改口径。**提交的事**：工作树 27 条现在分成 **3 个提交**落地 —— `fe02063`（工具条折叠，6 个文件）、`65a4e24`（M4.3 部署 20 个文件）、第三个是这份账本 + SPEC/TASKS 口径追认（md only，SHA 就是 `git log` 最顶上那条）。**并按他这一轮的话 push 到 `origin/main`**（此前 `origin/main` 停在 `9e1b8c0`，本地攒了 `66959f7` M4.1 + `5142024` M4.2 两个没推的提交，这次一并上去了）。你点头之后是 **M4.4 · 真人局测试与修复**（要 6 个人、连续 30 分钟，组织工作在你那边）。**M4 按 AGENTS.md 规则 4：做完一条停一条**，不批量。M4.1 / M4.2 / M3 那几条如果还没验，一并等你的话 |
+| 已完成任务数 | **23 / 24**（**M4.3 Docker 与部署代码与自动化验收完成，22 → 23**，其中「跑通完整对局 / VPS HTTPS+WSS / 手机跨网」三条只能你判（我环境里 Docker daemon 没开，部署也不是我该擅自做的事）；**上一轮「牌桌辅助控件收进工具条」不是 `TASKS.md` 里的任务，是他看手机后的口头反馈，不改任务计数**；M4.2 音效代码与自动化验收完成，21 → 22，其中「手机能出声/音色像不像」这一条只能你判；M4.1 断线重连与容错代码与自动化验收完成，20 → 21，其中三条手动验证项只能你判；M3.1–M3.5 五项代码与自动化验收完成，15 → 20；其中 M3.2 的目视验收与 M3.4 的最后一条仍挂着，见【M3.1–M3.5】那条记录的自检。下面从「10 / 24」起是 M1 / M2 的历史累述，保留不动：10 / 24（M1.1–M1.6 代码与自动化验收完成；M1.6 已用真浏览器 + 真服务端 + 终端牌手跑通联机）+ M1 已知问题修复**六轮** + RULES-SPEC §7 十四条自检**全部拿到变异探针实证**（第四轮审出并修掉隐私测试网的时间性漏洞，第五轮补跑 8 个探针覆盖剩余 6 条）+ **`TASKS.md` M1.1–M1.6 验收标准逐条对账**（45 条：M1.1 7 / M1.2 7 / M1.3 9 / M1.4 10 / M1.5 7 / M1.6 5，其中 44 条有具名用例或代码行证据，1 条 = `sidepot.ts` 覆盖率门被权限层拦下，只能你跑；M1.6 的「手动验证」那条本身只能你做）+ **第六轮把探针扫到前端翻译层与底牌铁律**：**9 个探针，5 条真缺口**（未知枚举兜底方向、`isMyTurn` 的双向 null 陷阱、非有限数字外泄、迟到底牌的事后对账缺反例、换座之后才到达的亮牌会绑错人）、**3 条证明现有网有效**、1 条由本轮新增用例当场兜住；另挖出 1 个当前实现里的真 bug（垃圾 `currentTurn` 会翻译成"在等 0 号位"，已修），补 12 条用例把这两层纳入网内 + **M1 收尾三席独立审查已落地**（底牌链路 / 真实德州规则 / 房间生命周期，三份仓库外报告逐条判定：修 4 处、5 次变异探针、6 处"不改"的理由写进代码或 `RULES-SPEC.md`，隐私断言从"只认字段名"改成"按牌的内容比集合"，另新增 §5.6 摊牌亮牌语义判定；见【M1 收尾 · 三席审查落地】）+ **M2.1 · SVG 资产库代码与自动化验收完成**（先记 11 / 24 的代码那一半，目视那一半当时还欠着。52 张牌面 + 自绘牌背/6 档筹码/桌面 + 8 个预置头像 + `/dev/assets` 验收页，29 条新用例、12 次变异探针，见【M2.1 · SVG 资产库】）+ **人头牌换代：12 张 J/Q/K 从 simple 版换成自绘镜像双人**（新增 5 条结构断言，见【M2.1 追加 · 人头牌换代】）。**M2.1 的目视验收已于 2026-09-26 通过 → M2.1 整项结案（11 / 24）** + **M2.2 牌桌布局 / M2.3 座位组件 / M2.4 操作面板 / M2.5 整体视觉打磨 四项代码与自动化验收完成（15 / 24 的代码那一半）**：新增 14 个文件、删掉 `ActionBar.tsx`，web 用例从 208 涨到 329（`tableLayout` 66 / `seatContent` 13 / `actionPanel` 23 / `raise` 10 / `devTable` 3 / `view` +1 / `table` 改到 39），shared 加 1 条桌布枚举校验（532），server 加 1 条桌布广播（57）。目视那一半还欠着，见【M2.2】到【M2.5】四条记录 |
+| 测试状态 | 主代理全仓 **1580/1580**（shared **532** / web **972** / server **76**），**79 个测试文件（26 + 45 + 8）**；**串行** `pnpm verify` 退出码 **0**（2026-09-27 M4.3 这一轮收尾实测，lint 零错 + 架构守卫 **13** 项全过 + typecheck + 三包测试 + 三包 build）。**守卫本轮从 11 项涨到 13 项**：新增第 10 条「**声明了 `start` 的包，入口文件必须真的存在于源码树**」+ 它的自检（把本轮撞见的 `node dist/main.js` 变成机器规则，见【M4.3】那条的「遗留问题结案」与 D-043；**跑过红绿**：临时把 `start` 改回 `node dist/main.js` → 守卫 EXIT=1 并指名道姓，还原 → EXIT=0）。**本轮 +24 条 / +2 个文件**：`packages/server/test/logging.test.ts` 9 条（新文件，级别阈值 / 保留键不被覆盖 / `Error` 展开成 name+message+stack / sink 抛异常不带走进程 / `parseLogLevel` 认不出来时落 `info` 而不是抛）+ `packages/server/test/routes.test.ts` 10 条（新文件，`resolveAllowedOrigins` 的解析口径 4 条 + Origin 闸门 5 条 + `/health` 也在闸后 1 条）+ `serverUrl.test.ts` 9 → 14 条（`/ws` 这类相对端点：同源拼接、带前缀时的 pathname 规则、`VITE_SERVER_URL` 空值回落）。**没有一条用例被删掉换数，shared 一条没动**（本轮纯部署与进程，规则引擎零改动）。**上一版 1556/1556、web 967 / server 57、77 个文件**（工具条那轮 +7）；**再上一版 1549/1549、web 960**（M4.2 那轮 +101、+5 个文件：`soundSynth` 26 / `soundCues` 27 / `soundPlayer` 11 / `soundSettings` 6 / `soundWiring` 24，另 `devAssets` +7）。**本轮没跑变异探针**（跟上轮一样：探针脚本被权限层拦过，没重试）。`logging.ts` 与 `serverUrl.ts` 的 `/ws` 分支走的是「先写用例看红、再实现」；**`routes.test.ts` 那 10 条里真正值钱的一条不在测试里**——是起真进程实测 `/matchmake` 给的：它**证伪**了我原先写在注释里的「express 这层挡得住」，于是安全边界挪到 nginx、注释和 `.env.example` 一起改口径（D-043 第 4 条）。**方法教训仍沿用**：逐包 `test` 绿**不等于** `verify` 绿，收尾一律跑全量；**而且不要在 `pnpm verify` 旁边并行起第二个测试进程**（M4.2 那轮两个 vitest 抢同一批 rAF，`seatContent` 的逐帧断言假红过一次） |
+| 构建状态 | **web 产物本轮零变化**（2026-09-27 收尾那次 `pnpm build` 实测，`dist/assets` 时间戳 20:18）：入口 **`1,171,960 B = 1,171.96 kB / gzip 260.96 kB`**、CSS **`26.45 kB / gzip 5.84 kB`**，与上一版一字不差——本轮改的 `serverUrl.ts` 那 29 行里大半是注释，没进产物。**「server 的 `pnpm start` 必然起不来」这条遗留问题本轮结案了**：上一版这一格写的是「`build` 是 `tsc --noEmit`、`dist/` 不存在、`node dist/main.js` 必然失败，这条是 M4.3 的硬前提」——**前提成立，解法换了**：`start` 现在是 **`tsx src/main.ts`**（`tsx` 从 devDependencies 提到 dependencies，D-043 第 1 条），**本轮真起了进程**：2571、2572 各起一次，`GET /health` 实测 **200 + `{"ok":true,"service":"poker-room-server","uptimeSec":…}`**，启动那行 JSON 打在 stdout。**注意语义**：`pnpm -r build` 对 shared / server 仍然只是类型检查通过（两边 `dist/` 依然不存在，shared 是设计如此 D-006），「构建通过」**不再**等于「跑不起来」，但也**不等于**「镜像里跑得起来」——镜像那条路上 `node_modules` 装的是全量（含 devDependencies，见 D-043 遗留①），而 `docker compose up` 我没跑（daemon 没开）。头像库仍是延迟 chunk（`372.94 kB / gzip 116.79` + `7.14 kB / gzip 2.89`），产物内 `pokersolver` 归零；Vite 仍在打「chunk > 500 kB」告警，没去调 `chunkSizeWarningLimit` 压掉它，那是唯一能看见这笔账的地方（牌面内联贵 47.5 kB gzip，退路见 D-023）；五个音效在产物里仍是 **0 字节**（合成，不是音频文件，D-041） |
+| 人工验收缺口 | **本轮（M4.3）新增三条只有他的环境能做的**（验法与命令都在 `README.md` 的「部署」一节，逐条照抄即可）：① **`docker compose up -d --build` 之后能不能完整打一局**——我这边 `docker` CLI 在但 **daemon 没开**，且起容器是出本工作树的副作用，没擅自做；`docker compose config` 退出码 0 只证明 YAML/插值合法，**不证明两份 Dockerfile 真构建得起来**（`pnpm install --frozen-lockfile` 在容器里通不通、`NODE_ENV=production` 下 `tsx` 还认不认，都还没见过）。② **VPS 上 HTTPS + WSS**：`/ws` 那条反代我**一行机器证据都没有**（环境里没 nginx 二进制，`nginx -t` 没跑过），最可能的第一次故障是 certbot 那两段路径没对上，或者 `Upgrade` 头漏了导致浏览器只报「连不上」——**判断依据就一条：F12 Network 里那根 socket 的状态码**。③ **手机走 4G/5G（跨网、不同 Wi-Fi）打一局**，这条顺带验 M2/M3/M4 攒下来的所有手机端项。另有一处**我故意做成会立刻失败**的行为要你确认能接受：`PORT` 环境变量给的是非整数或越界值时进程**直接退出**（不回落到默认端口），README 排错表里写明了。**上一轮（工具条折叠）那三条仍欠**：① **抽屉到底收没收集**——`[hidden]` 那条是 CSS，testing-library 按属性过滤节点，所以**用例全绿不等于界面上真的收了**（我把浏览器自动化试了一遍，被权限层拦下，没重试，所以这条我一行证据都没有）；② **工具条换行好不好看**——窄屏四~五颗钮 `flex-wrap`，横屏与宽屏也一视同仁地收（D-042 第 1 条，跟他批的口径一致但代价是宽屏多一次点击）；③ **展开表情 / 房主设置时桌面被顶下去**——抽屉是正常文档流，不是浮层，可不可接受由你判（做成浮层要引定位与遮罩，超出这一轮）。**M4.2 那条仍欠（而且是耳朵）**：手机开 `/dev/assets`，点最上面那五颗（发牌 / 筹码 / 公共牌 / 轮到你 / 胜利）→ **能不能出声**（第一次点击本身就是手势，第一下就该响）+ **像不像牌桌的声音**。刺耳、太薄、盖住节奏都算不认，改的只有 `sound/synth.ts` 那张 `SOUND_TIMBRES`。顺手判一下「静音时点了确实什么都不响」。**M4.1 那三条仍欠**（逐条验法在【M4.1】的「怎么手动验」，手机那条要横竖屏各刷一次）：① 游戏中刷新 → 回同一个座位、底牌还在、**不补播动画**；② 断网 30 秒 → 自己接回来；③ 断网超过 120 秒 → 别人那侧看到你离座、座位空出来。（第 4 条「服务端重启后显示已失效并引导回大厅」已由代码 + 用例覆盖，但仍请你亲手把进程杀掉刷一次看看那句话顺不顺眼。**本轮补一句**：M4.1 那条现在**多了一种验法**——`docker compose up` 之后 `docker compose restart server`，房间里的人应该看到同一句引导。）**上一轮 M3 收尾那两条仍要判**：① 手机竖屏 6/8 人那一档现在**会**演发牌了，但起飞点是牌堆本来该在的**空白处**，牌像从空气里飞出来——接受吗？不接受的退路是回到 D-029 候选③（画占位牌堆，要重开几何）。② 我手上的筹码现在画在「我的底牌」旁边（最多 5 枚 + `×N`），座位那一格里**不再有**我的余额数字——顺手也请判竖屏满桌时那一叠会不会把两张牌挤远。**积压 12 段连演多久算长**也要你判：最坏情况操作锁十几秒，出口是那颗一直可点的「跳过动画」。另加 M3 原批的两条（回放器「必须好用」、12 段口径）与 M2 那六条 ⏳（竖屏 1.7:1 够不够椭圆 / 紧凑档密度 / 撤掉 44px 触控高度后「入座」点不点得着 / 竖屏底池只显数字 / 手机不画牌堆 / 横屏桌面只占屏宽 38%）。M1 的：真机横竖屏、截图观感、亲手抓包查隐私（~~`pnpm test:cov` 补覆盖率门~~ **2026-09-27 他已实跑并结案**：`sidepot.ts` statements 100%、shared 全包 statements 577/577=100%，`TASKS.md:112` 那条原文成立；`% Branch` 97.36 是 `sidepot.ts:54` 不可达防御分支，门槛本就按 95 设，要不要删掉它另判） |
+| 工作树状态 | **2026-09-27 本轮收尾实测**：分支 `main`。之前那 27 条（18 改 + 9 未跟踪，落盘 28 个文件）**已全部提交**，切成三个：`fe02063`（工具条折叠，6 个文件）/ `65a4e24`（M4.3 部署，20 个文件）/ 第三个提交纯 md（本账本 + D-041/D-042/D-043 追认 + `SPEC.md` §4.7·§5.1·§5.3 + `TASKS.md:247` 的指针注释）。**并按他本轮明文授权 push 到 `origin/main`**——`origin/main` 原本停在 `9e1b8c0`，这次一并推上去的还有 `66959f7`（M4.1）与 `5142024`（M4.2）。**提交前最后一次全量验证跑的就是被提交的那棵树**：串行 `pnpm verify` 退出码 **0 / 1580**，日志 `.superpowers/verify-push.log`。**三个提交各自没单独跑过全量**（只在合并后的 tip 上验过），要回滚到中间某一格得先跑一遍 verify。原来的两批清单保留在下面备查：<br>**上一批（工具条折叠，6 个代码/测试文件）**＝`TablePage.tsx` 109/17、`table.test.tsx` 99/0、`global.css` 24/1、`EmoteBar.tsx` 11/2、`HostPanel.tsx` 10/2、`seatEmote.test.tsx` 3/2。<br>**本轮（M4.3，20 个文件 + 两份账本）**＝**10 个新建**：`Dockerfile.server` 52、`Dockerfile.web` 46、`docker-compose.yml` 68、`deploy/nginx/default.conf` 79、`deploy/nginx/https.conf` 80、`.dockerignore` 27、`.env.example` 16、`packages/server/src/logging.ts` 88、`packages/server/test/logging.test.ts` 126、`packages/server/test/routes.test.ts` 138（**新建文件合计 720 行**）；**10 个修改**：`README.md` 66/1（部署四节 + Node 行）、`packages/server/package.json` 3/3（`start` 换 tsx、`tsx` 提为 runtime dep）、`packages/server/src/main.ts` 22/5、`packages/server/src/index.ts` 4/7、`packages/server/src/routes.ts` 64/1（Origin 闸门 + 那处被实测证伪的注释）、`packages/web/src/net/serverUrl.ts` 29/7、`packages/web/test/serverUrl.test.ts` 41/0（+5 条）、`packages/web/vite.config.ts` 9/8、`scripts/check-arch.mjs` **72/0**（第 10 条守卫 + 它的 selftest，守卫 11 项 → 13 项）、`pnpm-lock.yaml`（`tsx` 挪依赖）；**外加两份账本继续长**：`DECISIONS.md` 本轮 **+90 以上**（D-043）、`PROGRESS.md`（这一格本身，不给自己记行数）。**这两批本轮都已提交**（`fe02063` / `65a4e24`，见本格开头）。**中间提交仍不保证单独可编译**（同一文件被两个里程碑改过时无法回溯拆分），只有 tip 是实测绿的那棵树。<br>**我起的进程有没清干净的**：**2571 上那个 node（PID 17560）还在 LISTENING** —— `TaskStop` 只终止了 pnpm 父进程，node 子进程成了孤儿，按 PID 杀被权限层拦下，没重试；**你如果看到 2571 被占，那就是我留的，可以直接杀掉**（它跑的是本轮代码，不影响你的 5173/5174/2567）。2572 那次是 `node --import tsx src/main.ts` 直跑，进程退出时端口已释放。上一轮那两个（vite **5175** PID 16948、`tsx watch` 那棵自己日志里 `EADDRINUSE :::2567` 的树）本轮**没有复查端口状态**（端口/进程侦查命令被权限层拦了，我只报我先前直接观察到过的）——**要看牌桌页仍然可以开 `http://<电脑IP>:5175`**，那是同一份工作树的 vite。**你自己在跑的三 listener 我始终没碰**：5173（32796）、5174（36392）、2567（12764） |
+| 最后更新 | 2026-09-27（本轮：**M4.3 Docker 与部署** + D-043；上一轮牌桌辅助控件收进工具条 + D-042；再上一轮 M4.2 音效 + D-041；再再上一轮 M4.1 断线重连与容错 + D-040） |
 
 ---
 
@@ -48,7 +48,7 @@
 - [ ] **（可选，2 分钟）手工验一次"快速连点不会被服务端认错"** —— 出自【M1 收尾 · 三席审查落地】的审查三 #2，我的夹具结构上表达不了"两条消息同时在途"（`command()` 里 `await` 了 `pong`），所以下面这三条保证**只有自动化拿不到证据**，不是没实现：① 同一 `handId` 的过期动作被拒；② `turnVersion` 不匹配的动作被拒；③ 前端在等服务端确认时动作条锁住（D-017）。你手上的验法：F12 → Network → 把节流设成 `Slow 3G` 或 `No throttling` 反过来快速连点「跟注」/「过牌」四五下，看**服务端只接受一步**、界面不出现"我明明点了两次"的 double-charge，也不出现按钮永久锁死。这一条如果哪天变成真故障（比如加了"踢人"这类破坏性动词），代码注释里已经写明要给它带上连接期号。
 - [ ] **（可选，30 秒）用例顺序无关性**：`pnpm --filter @poker-room/web test -- --sequence.shuffle` 跑两遍。它验的是头像懒加载那几条用例不会因为先后顺序互相污染。我的环境里这条被权限策略拦下，连"改 vitest 配置开启 shuffle"这条等价路也被拦，所以只能你手上跑；不跑也不影响交付，只是少一条证明。
 - [x] **M1.2 那条覆盖率验收门 —— 2026-09-27 他实跑取到证据，结案**。`TASKS.md:112` 原文要的是「`shared` 包覆盖率达到 **100% statements**（`sidepot.ts`）」。他跑 `pnpm test:cov` 报回 `% Branch` 是 **97.36**，我按他生成的 `packages/shared/coverage/lcov.info` 逐条核过：`sidepot.ts` **statements 58/58 = 100%**、functions 14/14 = 100%、lines 58/58 = 100%，**branches 37/38 = 97.368%**（就是他那一位数）；整个 shared 包 statements **577/577 = 100%**、branches 477/478 = 99.79%。**所以那条验收是按原文成立的**。唯一的缺口是 `sidepot.ts:54` `else if (amount > 0)` 的 **false 那支**，它**数学上不可达**：`levels` 由玩家自己的 `committedTotal` 去重升序得到（`:42`），凡能过 `:46` 的 `level` 必满足 `level > prev`，而那个 level 的主人自己就贡献 `level - prev > 0`，其余项 `≥ 0`，于是 `amount > 0` 恒成立。这一条**不是本轮新发现**——M1.2 当天就记在下面的【M1.2 落地】里（「branches 97.36%，保留规范中正层金额判定的不可达 false 路径」），`packages/shared/vitest.config.ts` 的门槛也正是按这个事实设的：`statements/functions/lines = 100`、**`branches = 95`**。要不要把这道防御分支删掉让 branch 也凑到 100，是另一个决定，见「遗留问题」。
-- [ ] **（可选，1 分钟）验一下"合规红线"守卫真的会拦**：`node scripts/check-arch.mjs` 现在打印 11 项检查，其中一条是 `[no-real-money]`。想看它咬得住，随便在某个 `packages/*/src/*.ts` 里加一行 `export const t = '充值';`，再跑一次 —— 应该退出码 1 并打印那行的文件、行号和命中词；然后把这行删掉再跑，回到全绿。这条是 AGENTS.md 第 7 条（不做充值/兑换/提现，连接口都不留）第一次变成机器常驻检查，之前只是我做一次性 grep 复查，那种做法依赖下一个人记得再扫一遍。
+- [ ] **（可选，1 分钟）验一下"合规红线"守卫真的会拦**：`node scripts/check-arch.mjs` 现在打印 13 项检查，其中一条是 `[no-real-money]`。想看它咬得住，随便在某个 `packages/*/src/*.ts` 里加一行 `export const t = '充值';`，再跑一次 —— 应该退出码 1 并打印那行的文件、行号和命中词；然后把这行删掉再跑，回到全绿。这条是 AGENTS.md 第 7 条（不做充值/兑换/提现，连接口都不留）第一次变成机器常驻检查，之前只是我做一次性 grep 复查，那种做法依赖下一个人记得再扫一遍。
 
 > 环境备注：上一轮会话留下一个 `tsx watch` 服务端还挂在 **2567**（当时记的 PID 36888）。**这一条我没有在本轮复核**——本轮想查端口时被命令权限策略拦下了（同一策略还拦了 `curl 127.0.0.1:2567/health`），所以 PID 可能已经不是它。开工前先 `netstat -ano | grep 2567` 自己看一眼。它是 `watch` 模式、跑的是当前代码，你直接 `pnpm dev` 也能用；想干净重启就 `taskkill //PID <上面查到的> //F`（Git Bash 里斜杠要双写）再 `pnpm dev`。
 
@@ -66,16 +66,14 @@
   本轮修的是**刷新之后**那条路（死凭证清掉 → 新身份 `joinById` → 失败 → 「牌桌 XXX 已失效」+ 回大厅）。玩家停在牌桌页不动、服务端当着他的面重启，走完 SDK 那 56 秒重连窗口后是 `link === 'offline'` + 横幅「连接已断开」，**没有谁去再调一次 `joinRoom`**：`RoomContext.joinRoom` 里那道「`offline` 才重建」的守卫是留给这件事的口子，但牌桌页那个自动进房 effect 的依赖是 `[codeIsValid, code, profile, joinRoom]`，`profile` 来自 `useState`、`joinRoom` 是稳定引用，所以掉线不会让它重跑。
   **为什么不自动**：自动重走一次 `joinRoom` 等于在自动重连失败后紧接着「换身份重进」，而如果服务端只是抖了一下、那个 120 秒座位其实还在，这一脚就会把玩家本来能续上的座位真的换掉 —— 正是 D-040 那条反向用例（满员不许清凭证）在防的同一个方向。现在人在屏幕上看到两句出口：横幅的「刷新这一页或者回大厅再进一次同一个配对码」，和刷新后的「已失效 → 回大厅」。要不要做成自动，留到 M4.4 真人局测试一起判（那时能看到真人的掉线分布）。
 
-- **[低] `TASKS.md:247` 与实现的口径差** —— D-036 落地时留下 —— 不阻塞 M4，**要改一个字面数字，但那条我按规则 8 不能自己动**。
-  那一行写的是「积压 >5 清空渲染终态」，实现已经是 `ANIM_BACKLOG_LIMIT = 12`（`anim/queue.ts:56`），`SPEC.md` §3.1 同一天改到了 12 并留了注释指向 D-035/D-036。现在两份文档给的数不一样：读 `TASKS.md` 的人会以为 5 是验收口径。他说一句「按 D-036 改 TASKS」我就改；或者他自己改那 3 个字符。
+- ~~**[低] `TASKS.md:247` 与实现的口径差**~~ —— **2026-09-27 结案**（他说「你来决定」→ 我选**只加指针、不改他写的数字**：规则 8 保护的是任务描述与验收标准本身，而问题只是"读的人会以为 5 是口径"，一条 HTML 注释就能消掉它，改数字反而是我用授权去做一件没被要求的事）。现在 `TASKS.md:247` 后面挂着一条注释指向 D-035/D-036 与 `SPEC.md` §3.1，两份文档给的数不同这件事有了可见的解释。
 - **[中] `TASKS.md` M2.3 点名的「托管中」这个状态在本实现里不存在** —— M2.3 —— **他已裁决：本版不做，登记为 v2**（2026-09-27）。
   情况比"漏了一个徽章"细：`Player.sittingOut` 是有的，也一路同步到了前端（`server/src/schema/PokerRoomState.ts:24` → `engine-bridge.ts:73` → `net/view.ts`），座位按 SPEC §4.3 的写法把它渲染成「旁观」（`web/src/table/components/SeatList.tsx:76`）。但它在引擎里**只有一个置位点**：本手打到一半人离桌（`shared/src/engine/table-lifecycle.ts:117-128`，顺带按需 `folded`）。而朋友局口语里的"托管"是另一件事——**人还在座上、这手还想打，只是不想盯，让系统代打**（每街自动过牌，有待跟注额时自动跟到额或按额度全下）。那要一个新动作（比如 `table:setAutoPlay`）、schema 里一个新字段、以及"托管者算不算有行动能力"的判定改动（引擎现在跳过的条件是 `folded || allIn || sittingOut`，见 `betting.ts:35`）。
   **v2 要做时的完整交法**（已经跟他对齐过口径，别只加个徽章）：先写红用例 → 引擎（含"托管者是否占行动位"的判定与手数上限）→ schema 新字段 → 服务端定向广播 → 前端徽章「托管中」→ 变异探针 → 全量 verify。它落在 `shared/engine`，任何一步偷懒都会破坏 M1 那一整套规则覆盖。
 - **[低] `/dev/table` 与 `/dev/assets` 两个验收页没有 DEV 门，被打进生产入口 chunk** —— `/dev/table` 是 M2.2，`/dev/assets` 从 M2.1 起就这样 —— 不阻塞。
   `web/src/App.tsx:34-35` 是静态 `import`、`:54-55` 是无条件挂路由，既没有 `import.meta.env.DEV` 也没有懒加载。**M4.2 之后这一页顶部还多了五颗试听按钮**（`/dev/assets` 的音效区）——同一件事，不另开一条：摘的时候一起摘，别只摘路由留下试听区在 bundle 里。**这一批刻意没动**，因为代价量不出独立的一项：入口 chunk 1,093.06 kB 里主体是 52 张内联牌面（D-023 那笔账），验收页摊不到多少。真掉分时按 D-023 的顺序来——先给牌面单独 `manualChunks`，那步做完还不够再摘验收页。摘也有两种，各有代价：加 `import.meta.env.DEV` 门等于生产包里彻底没有这两条路由（以后你在手机上就打不开 `/dev/table` 了，只能连电脑的 dev server）；改成懒加载则多一套加载态要写要测。
-- **[中] BrowserRouter 的深链接 `/r/:code`、`/t/:code` 需要托管端做 SPA 回退重写** —— M0.4 —— 不阻塞 M1，**M4.3 必须解决**。
-  dev 下 vite 自带回退，已实测（杀服务端后刷新 `/r/8P6PW2` 正常渲染错误横幅而不是 404）。但 **GitHub Pages 做不到**——它只认静态文件，`/r/ABC123` 会直接 404。届时要么换 `HashRouter`（分享链接变成 `/#/r/ABC123`，丑一点但能用），要么换支持重写的托管（Cloudflare Pages / Netlify 一条 `_redirects` 就够）。「配对码即分享链接」是这个产品的核心传播路径，别拖到最后才发现要改路由方案。
-  **这条需要用户先定托管方案**：换路由会改变分享链接的形态，属于产品可见的决定，AI 不擅自改。
+- **[中] BrowserRouter 的深链接 `/r/:code`、`/t/:code` 需要托管端做 SPA 回退重写** —— M0.4 —— **M4.3 已写好回退规则，但还没在真 nginx 上验过**（他 `docker compose up` 那一下顺带验）。
+  dev 下 vite 自带回退，已实测（杀服务端后刷新 `/r/8P6PW2` 正常渲染错误横幅而不是 404）。**部署形态定了 nginx 之后这条已经有了着落**：`deploy/nginx/default.conf` 与 `https.conf` 里都有 `location / { try_files $uri $uri/ /index.html; }`，`/assets/` 单独走永久缓存——所以微信里别人直接点 `/t/配对码` 不会 404。**残留两点**：① 那两份 conf 一行机器证据都没有（我环境里没 nginx 二进制，`nginx -t` 没跑过）；② 原条目里担心的 **GitHub Pages 做不到**这一点现在不再是问题——D-043 选了「单台 VPS + nginx」，不往 Pages 发。若将来改投 Cloudflare Pages / Netlify，只需要补一条 `_redirects`，路由方案（`BrowserRouter`）**不用动**，分享链接形态不变。
 - **[中] 手机横竖屏是否破版**未经真机验证 —— M0.4 —— **需要用户亲手验**，不阻塞 M1。
   `global.css` 里有窄屏媒体查询，但本环境的内置浏览器没有可见视口（`innerWidth === 0`、`visibilityState: hidden`），截图与坐标点击全部不可用，只能靠可访问性树做结构验证。验法：手机连同局域网 Wi-Fi，开 `http://<电脑IP>:5173`，创建房间后转屏看等待室。
   M1.6 补记：牌桌页新增了两栏断点（`860px`），本环境可视口只有 834×858，**恰好落在单栏分支**，所以两栏布局与 390×844 / 844×390 一样未经真实渲染。需要用户亲手：手机进 `http://<电脑IP>:5173`，用配对码进同一桌，转屏看动作条是否可点、座位是否溢出。
@@ -83,11 +81,6 @@
   不可达的证明很短：`levels`（`:42`）就是玩家 `committedTotal` 的去重升序集合，能过 `:46` 的 `level` 必满足 `level > prev`，而该 level 的主人自己那一项就是 `level - prev > 0`，其余项 `≥ 0` ⇒ `amount > 0` 恒成立，于是 `:54` 的 false 那支永远走不到。
   **它和 D-008 的原则相冲**：`PROGRESS.md` 里 M0.2 那条记过「后续引擎代码照这个原则写：宁可换一种写法，也不要留死分支」，而 M1.2 当时**选择保留**（见【M1.2 落地】「保留规范中正层金额判定的不可达 false 路径」），并把 `vitest.config.ts` 的 branches 门槛降到 95 来容纳它。两份记录都没写"为什么不统一到其中一边"。
   **要不要收干（等他判，AI 不擅自动规则引擎）**：① 保持现状，代价是 `% Branch` 永远不是 100，好处是 RULES-SPEC §4.1 分层判定那道"金额必须为正"的闸还在；② 把 `:52` 与 `:54` 的 `amount > 0` 删掉（它恒真），branch 立刻 100/100，代价是动 `shared/engine`——要走红用例 → 改 → 变异探针 → 全量 verify 那一整套，且这道闸消失，将来若 `levels` 的构造方式变了就没人拦住"零额池"；③ 给这行加 `/* v8 ignore next */`（provider 是 v8），数字变好看但语义一点没变，等于给死分支化妆，**我不推荐**。我的建议是 ①：这条分支是规格里读得出来的一句话，不是手滑留下的判空。
-- **[低] server 生产构建（`node dist/main.js`）当前不可用** —— M0.1 —— 不阻塞 M0-M3，**M4.3 必须解决**。
-  原因见 `DECISIONS.md` D-006：shared 包用源码导出模式，dev 走 tsx 没问题，但 server 用 `tsc` 产出的 JS 会在运行时解析到 `.ts` 文件。M4.3 加 tsup 打包即可，不需要返工前面的代码。
-  补充（M0.3）：`packages/server/tsconfig.json` 目前是 `noEmit: true`，`pnpm build` 对 server 实际上只做类型检查、不产出 `dist/`。M4.3 一起处理。
-  补充（M1 对账轮实测）：`packages/server` 的 `build` 脚本就是 `tsc -p tsconfig.json`，而 `tsconfig` 是 `noEmit: true` —— 本轮单跑 `pnpm --filter @poker-room/server build` 退出码 0，且 `packages/server/dist/` **根本不存在**。所以"server 构建通过"这句话的真实含义只是"类型检查通过"，`start` 脚本（`node dist/main.js`）目前必然起不来。这条是 M4.3 的硬前提，别再被绿色构建误导。
-  M4.3 的修完后请顺手把它变成机器规则（现在加会立刻让 `pnpm lint` 变红，所以刻意推迟）：在 `scripts/check-arch.mjs` 里加一条"每个声明了 `start` 脚本的包，构建后必须存在该入口文件"的校验。这样"构建通过"这句话从此自带产物证据，不需要下一个人记得 dist 是空的。
 - **[低] `uuid@8.3.2` 是 deprecated 的间接依赖** —— M0.1 —— 不阻塞。来自 Colyseus 依赖链，非本项目直接引入，无法自行升级。记录备查。
 - **[低] npm 将 `eslint@9.39.5` 标记为 deprecated（10.11.0 可用）** —— M0.1 —— 不阻塞。
   阻塞项已查清：装的 `typescript-eslint@8.70.1` 的 peer 是 `eslint: "^8.57.0 || ^9.0.0 || ^10.0.0"`，**升 10 没有被依赖卡住**。仍留在 M4 打磨期和其他依赖升级一起处理：这是一次 lint 大版本升级，只消一条 deprecated 告警、不改任何行为，不值得在里程碑收尾时拿绿色构建去换。
@@ -111,6 +104,7 @@
 - **[中]（M3.3 提出，D-037 修）手机那几档 `deck === null`，发牌与公共牌整段不飞** —— 修法：把"牌堆画不画"与"牌从哪儿起飞"这两件事**解绑**。`table/layout.ts` 把牌堆搜索的第一档导出成 `DECK_BEARING` / `DECK_RADIUS`，极坐标换算抽成 `feltPointAt(felt, radius, bearing)`（`layout.ts:286`），`centerPieces` 与动画层现在调的是同一个函数；`TableStage.tsx:71` 给桌面那张 `<img>` 挂上 `data-anim="felt"`（只测量、不遮挡）；`deckCenter()`（`anim/draw/kit.ts:172`）改成「量到牌堆用牌堆 → 量不到用桌面第一档 → 桌面也没有才 `null`」。几何没动、没画占位牌堆、D-029 的无重叠铁律一个字没改。红-绿双向都取过：`animDraw` 钉三个分支的具体坐标，`animDom` 钉 `felt` 锚点存在且挂在桌面图上，`tableLayout` 钉兜底点在桌面中心偏右上且精确落在 `DECK_RADIUS` 那一档椭圆上。**一条实现坑值得留着**：`anim/scene.ts` 的 `Box` 是 `{left, top, width, height}`（相对幽灵层），`table/layout.ts` 的是 `{x, y, w, h}`（视口），第一次实现没换算，测试直接给出 `{x: NaN, y: NaN}` —— 注释已写在 `deckCenter` 里。**待他判**：竖屏 8 人那一档现在会飞了，但起点是空气。
 - **[中]（M3.4 提出，D-036 修）三池派彩那一帧的动画根本不播**（`TASKS.md` M3.4 最后一条因此是 ❌）—— 修法：`ANIM_BACKLOG_LIMIT` 由 5 抬到 **12**（`anim/queue.ts:56`）。这条是 D-035 摆出冲突后他的裁决（「都按你推荐的来做」→ 我列的推荐项 A）。队列两条不变式一条没动：仍然严格串行、仍然"超线清空落终态"；`SPEC.md` §3.1 的「>5」同步改到 12 并留注释指向 D-035/D-036；`animQueue`（正好 12 / 第 13 段作废）、`animDirector` 积压场景、`devReplay` 三场景峰值表（4 / 6 / 3）与"没有任何一帧越线"这条**反向守卫**一起改到新口径。**病根（计数单位是"段"而不是"到达批次"）没除**，作为建议登记在下方「建议」区。代价明说：最坏情况画面连着演 12 段才落定，这期间操作锁着，出口是积压期间一直可点的「跳过动画」。
 - **[低]（M0.3 提出，M1 收尾修）`@colyseus/testing` 的 `boot(server)` 重载写死端口 2568** —— 修法：**从注释升级成守卫**。`check-arch.mjs` 新增规则 8，扫 `packages/server/test/*.test.ts` 里每个 `boot()` 调用（括号配对 + 顶层逗号切分，嵌套实参对象也能认出第二个参数），三档违规都会让 `pnpm lint` 失败：两个文件抢同一端口、占用 2567（dev 服务端）或 5173（vite）、吃了隐含 2568 的重载却通篇没写出 `2568` 这个数字。`integration.test.ts` 头部注释同步改成指向守卫，不再靠人记。验证：临时造两个探针文件（一个 `boot(createGameServer())` 不带端口、一个同时用 2567 与 2570），守卫退出码 1 并打出 4 项违规（隐含 2568 / 2568 撞 integration / 2567 是 dev 端口 / 2570 撞 poker-lifecycle），删掉探针后恢复 `OK [ports] … 2568→integration, 2569→poker-network, 2570→poker-lifecycle`；另有一段 `selftest` 钉住解析器对三种写法的判定。**探针顺带查出守卫自己一个说谎的地方**：违规时它照样打一行 `OK [ports] 端口互不冲突`，因为 `pass()` 无条件调用 —— 已改成零违规才打。这类"注释里的纪律"后续遇到就直接变规则，不再新增靠人回忆的注释。详见 D-007 补充。
+- **[低]（M0.1 提出，M4.3 修）`server` 的 `start` 指向一个从来不存在的 `dist/main.js`** —— 活了三条里程碑：`packages/server` 的 `build` 是 `tsc -p tsconfig.json` 而 tsconfig 是 `noEmit: true`，所以 `dist/` **从没产出过**，而 `start` 写的是 `node dist/main.js`。全仓测试绿、三包 `build` 绿、`pnpm verify` 退出码 0，`pnpm start` 必然起不来——**做镜像时才撞见**（M4.3 的硬前提就是这条）。修法：**换运行时而不是补构建**——`start` = `tsx src/main.ts`，`tsx` 从 devDependencies 提到 dependencies。四条备选为什么不走（`tsc` 出 ESM 撞无扩展名 import + 顶层 await 堵死 CJS、Node 原生 type-stripping 同样不解析无扩展名 import、改 `shared` 导出方式会推翻 D-006、加 tsup 是给源码导出模式再叠一层产物）与代价全在 **D-043 第 1 条**。实测：真起进程两次，`GET /health` → **200** + `{"ok":true,"service":"poker-room-server","uptimeSec":…}`。**并且按这条遗留自己要求的那样升级成了机器规则**：`check-arch.mjs` 新增第 10 条（声明 `start` 的包，其命令里的入口 token 必须能在源码树里找到）+ 一段 `selftest` 钉住抽取器（`tsx src/main.ts` 与 `node dist/main.js` 都抽得出、`-r`/`--filter @scope/pkg`/`tsc -p tsconfig.json`/`../../etc/passwd.js` 都不误伤）。**红绿双向跑过**：临时把 `start` 改回 `node dist/main.js` → 守卫 EXIT=1 且只报 `[entry]` 一条；还原 → EXIT=0。守卫 11 项 → **13 项**。
 
 ---
 
@@ -119,7 +113,7 @@
 > AI 觉得有价值但不属于当前任务的想法记这里，用户在里程碑验收时决定是否采纳。
 > **AI 不得自行实现这里的任何条目。**
 
-- **[待你定] 动画积压的计数单位要不要从"段"改成"到达批次"。** 出自 D-035，D-036 只是把数抬到 12 让验收成立，病根没除：`queue.push` 数的是段，而"一帧里三个池派彩"天生 6 段——同一批网络到达被当成六次独立表演。真按批次计，三个赢家会几乎同时收到筹码（更接近真牌桌），积压判定也不再依赖一个魔数。
+- ~~**[待你定] 动画积压的计数单位要不要从"段"改成"到达批次"。**~~ —— **2026-09-27 裁决：不做，推到 M4.4 之后**（他这轮说「你来决定」，我判"不做"，理由就是这条下面自己写的那一句：D-036 刚把数定下来，紧接着再改口径，等于让他没法判断观感变化来自哪一处；而下一件事是 6 人真机局，正是要用稳定口径收集问题的时候）。出自 D-035，D-036 只是把数抬到 12 让验收成立，病根没除：`queue.push` 数的是段，而"一帧里三个池派彩"天生 6 段——同一批网络到达被当成六次独立表演。真按批次计，三个赢家会几乎同时收到筹码（更接近真牌桌），积压判定也不再依赖一个魔数。
   **代价**：动的是 `anim/queue.ts` 的 `push` 判定与 `anim/plan.ts` 的分组，队列两条不变式（严格串行、积压清空落终态）要重新取证，`animQueue` 19 条 + `animPlan` 30 条 + `devReplay` 钉峰值那组都要跟着改。**AI 不自行实现**，因为 D-036 刚把数定下来，同一批里再改口径等于让他没法判断观感变化是哪一处带来的。M4 之后想做再说，我按老规矩交：先红用例 → 两处实现 → 探针 → 全量 verify。
 - **[待你定] 把「亮牌身份只能来自 `handPlayers`」升级成架构守卫第 10 项。** 出自【第六轮续】的 W8 探针：`view.ts` 的 `readReveal` 从 `players` 还是 `handPlayers` 查座位对应的人，改错时**全量测试全绿**，因为既有用例把亮牌发在换座之前，两个来源那一刻给出同一个答案。
   你认可的取向是"凡是只能靠人记的纪律，就升级成机器可查的规则"，所以我一度准备动手；**但这一条我判断不该由 AI 自己实现**，理由是它和前几条守卫不同类：
@@ -137,8 +131,145 @@
 
 ## 任务记录
 
-> **最新一条**：下面的【M4.2 · 音效】。（旧的排布说明保留：【M1 收尾 · 三席审查落地】排在【第六轮】记录的**末尾**，
+> **最新一条**：下面的【M4.3 · Docker 与部署】（`TASKS.md:326`，代码与自动化验收完成；六条验收标准里**三条需要一台真的 Docker / 真的 VPS**，只能他做）。（再往前是【牌桌页 · 辅助控件收进工具条】（**不是 `TASKS.md` 里的任务**，是他验收 M4.2 期间提的样式改动，代码与自动化验收已完成、等他眼睛），再往前是【M4.2 · 音效】。旧的排布说明保留：【M1 收尾 · 三席审查落地】排在【第六轮】记录的**末尾**，
 > 因为它是那一句的回填，没有按倒序上移。）
+
+### 【M4.3 · Docker 与部署】 — 2026-09-27，`pnpm verify` **退出码 0 / 1580**（shared 532 / web **972** / server **76**，79 个文件）
+
+`TASKS.md:326` 那一句「做」列了九件：server 与 web 的 Dockerfile、docker-compose、nginx 配置（静态托管 + `/ws` 反代 + wss）、Let's Encrypt 证书、环境变量、健康检查、结构化 JSON 日志、README 部署说明。**九件都落地了**，但其中三件的「能跑」只有他的环境能证（见最后的自检）。
+
+#### 先说这轮修掉的真问题：`pnpm start` 之前**必然起不来**
+
+`packages/server/package.json` 的 `start` 写的是 `node dist/main.js`，而 `tsconfig` 开着 `noEmit`——**`dist/` 从来没存在过**。全仓 1556 条用例全绿、README 全绿、`pnpm verify` 退出码 0，而镜像照原来那份 Dockerfile 构建出来就是起不来。上一轮账本里那句「这条是 M4.3 的硬前提」现在结案，解法不是「补构建」，是**换运行时**：
+
+- **`tsc` 出产物**不行：全仓相对 import 不写扩展名 + `shared` 是源码导出（D-006），Node 自己解析不到；而 `main.ts` 有顶层 `await`，`module: commonjs` 直接编译不过。
+- **Node 原生 type-stripping**（`--experimental-strip-types`）不行：它只去类型，**同样**不解析无扩展名 import。
+- **改 `shared` 的导出方式**（补扩展名 / 出 d.ts 与 js）：那是整仓 import 口径的改动，远超一个部署任务，而且会推翻 D-006。
+- **决定：`tsx src/main.ts`**，并把 `tsx` 从 devDependencies 提到 **dependencies**（生产镜像里 devDeps 未必装，运行时要它）。四个备选与代价都在 **D-043 第 1 条**。
+
+**而且是本轮真跑过的**：起进程两次（2571、2572），`GET /health` 实测 **200**、body `{"ok":true,"service":"poker-room-server","uptimeSec":…}`，stdout 一行启动 JSON。**这是这个项目第一次 `pnpm start` 真的把服务起起来**。
+
+**顺手把这条遗留变成了机器规则**（`scripts/check-arch.mjs` **第 10 条** + 它的自检，守卫从 11 项涨到 **13 项**）：任何声明了 `start` 的包，其命令里像入口文件的 token（`src/main.ts` / `dist/main.js` 这类）**必须能在源码树里找到**。判的是"入口看得见"而不是"构建后有产物"——因为守卫跑在 `pnpm lint` 阶段，那时 `dist/` 本来就该不存在（shared 是源码导出 D-006）。效果：**`tsx src/main.ts` 过；谁把 `start` 改回 `node dist/main.js` 而不去真的产出它，`pnpm lint` 立刻红并指名道姓**。红绿都跑过（临时改 `start` → EXIT=1 报 `[entry]`，还原 → EXIT=0）。
+
+#### 做了什么：四层，22 个文件（10 新建 / 10 修改 / 2 份账本）
+
+1. **前端认「同源前缀」**（`packages/web/src/net/serverUrl.ts` 29/7、`serverUrl.test.ts` 9 → 14 条、`vite.config.ts` 9/8）：`VITE_SERVER_URL` 除绝对地址外，**以单个 `/` 开头的值按 `location.origin` 补全**，于是构建参数只需 `/ws`，**换域名不必重新构建镜像**。顺手把 **D-010 里那句「路径前缀盖不住第二跳 `processId`」的错判改掉**——`@colyseus/sdk` 0.18 把 endpoint 的 `pathname` 同时拼进 matchmake 与 WS 两段（`Client.mjs` 的 `buildEndpoint()` / `getHttpEndpoint()`），前缀代理是成立的，生产形态正是靠它。`//other/ws` 那种协议相对写法**故意不补全**（它指的是另一个地址），原样交出去显式失败。
+2. **服务端进程与日志**（新建 `src/logging.ts` 88 行 + `test/logging.test.ts` 126 行 9 条；重写 `src/main.ts`；`src/index.ts` 导出 `startServer(port)`；新增 `createOriginGate` / `resolveAllowedOrigins` + `test/routes.test.ts` 138 行 10 条）：JSON 日志**自己写**，不引 pino/winston（SPEC 技术栈表里没有，且 `ServerOptions.logger` 这个口子 0.18 里没有 `json` 字段——上一版那行 `logger.json = true` 就是 TS2339）。`level` 阈值、保留键不被业务字段覆盖、`Error` 展开成 `{name,message,stack}`、**sink 抛异常不带走进程**、`LOG_LEVEL` 写错时落 `info` 而不是崩，都有具名用例。`PORT` 非法值**故意直接退出**，不悄悄回落默认端口。
+3. **镜像与编排**（新建 `Dockerfile.server` 52 / `Dockerfile.web` 46 / `docker-compose.yml` 68 / `deploy/nginx/default.conf` 79 / `deploy/nginx/https.conf` 80 / `.dockerignore` 27 / `.env.example` 16）：先 COPY manifest+lock 再 COPY 源码（改代码不炸依赖层）；`npm i -g pnpm@9.15.0` 而不是 corepack（corepack 按 `packageManager` 再去下一趟网，构建多一个不可复现变量）；**`USER node` 非 root**；两镜像都带 `HEALTHCHECK`，`web` 用 `depends_on: server: condition: service_healthy` 排队；**`server` 只有 `expose` 没有 `ports`**——公网机器上 2567 不监听，就没有绕过 nginx 的 `ws://` 入口；`restart: unless-stopped` + `init: true`（`tsx` 会再起一个 node 子进程，没 init 就收不到 SIGTERM）；nginx 里 `gzip on`（官方镜像默认 `gzip_types` 是注释掉的，不写等于 1.1MB JS 原样发出去）、`/assets/` 永久缓存 + `index.html` no-cache（BrowserRouter 的分享链接必须回落）、`proxy_read_timeout 3600s`（默认 60s 会在一局牌安静的时候把 WS 掐掉，玩家看到的就是"莫名其妙掉线"）、`proxy_buffering off`；certbot 挂在 `profiles: [tls]` 下不参与 `up`。
+4. **文档**：`README.md` 66/1（新增「部署 / 谁能连进来 / 上 HTTPS / 排错」四节，Node 行改 `≥22（容器与开发机同为 24）`）+ **D-043**（五条决定 + 备选 + 「我没验到的」清单）。
+
+#### 一件被实测**推翻**的事（本轮最值钱的一条）
+
+写 Origin 闸门时我在注释里断言：「express 按注册顺序执行，先跑的是我们，这一层挡得住」。**起真进程一测就不成立**——恶意 `Origin` 打 `POST /matchmake/create/poker` 拿到的是 **200 + 真 roomId**，而同一个实例上 `/health` 返回 403。原因：**Colyseus 0.18 先把 cors 与 matchmake 挂上 app，之后才调用我们传进去的 `Server({ express })` 回调**。又用编译器把 `ServerOptions` 的 **14 个键**全枚举了一遍（`Record<keyof ServerOptions, 0>` 的报错法），里面**没有任何** CORS / origin 开关。所以：
+
+- **真正的同源门挪进 nginx**（`location /ws/` 里比较 `$scheme://$http_host`）——**域名、IP、端口、http↔https 全都不用写死**，因为它问的是「谁在答这个请求」；没带 `Origin` 头的请求（健康检查、`curl`、服务端对服务端）照常放行。
+- app 里那道**留着当第二道**（给「把 2567 直接 `ports:` 暴露出去」那种部署兜底），但 `routes.ts`、`routes.test.ts`、`.env.example` 三处过强的表述**全部改成实测结论**。
+- 这条也解释了为什么本轮 server 用例从 57 涨到 76 里那 10 条仍然值得留：**它们测的是这道闸"覆盖到哪"，不是"它能挡一切"**。
+
+#### 实测证据
+
+| 命令 | 结果 |
+|---|---|
+| `pnpm verify`（**串行**，收尾一次跑完） | **退出码 0**；lint 零错 + 架构守卫 **13 项**全过 + typecheck 三包 Done + **1580 条**（shared 532 / web 972 / server 76，文件 26 + 45 + 8）+ build 三包 Done。**日志 `.superpowers/verify-m43-final.log`**（同一棵最终树连跑了两次串行 verify，两次都 EXIT=0，第二次留了日志；两次之间 tree 未改动，md 与代码的编辑都在这两次之外） |
+| `pnpm --filter @poker-room/server test` | **76/76**（原有 57 + `logging` 9 + `routes` 10） |
+| 真进程 `node --import tsx src/main.ts`（2572）+ `GET /health` | **200** + `{"ok":true,"service":"poker-room-server","uptimeSec":…}`；进程退出后端口释放 |
+| 恶意 Origin 打 `/matchmake`（起真 express + Colyseus） | **200 + roomId** → 证伪了「express 这层挡得住」，见上一节 |
+| `docker compose config` | **退出码 0**（YAML 与插值合法；**不等于**镜像构建得起来） |
+| `pnpm --filter @poker-room/web build` | 入口 **`1,171.96 kB / gzip 260.96`**、CSS **`26.45 / 5.84`**——**与上一版一字不差**（本轮那 29 行 `serverUrl` 大半是注释，没进产物） |
+| `node scripts/check-arch.mjs`（守卫，还原后） | **13 项全过、EXIT=0**。**变异探针**：临时把 `packages/server` 的 `start` 改回 `node dist/main.js` → **EXIT=1 并只报 `[entry]` 一条**（"那个文件不存在…见 D-043"），从备份还原 → EXIT=0 且 `start` 仍是 `tsx src/main.ts`（`grep` 复核过） |
+| `VITE_SERVER_URL=/ws` 构建，查产物 | endpoint 编成 `override:"/ws"`。**同一个命令在 Git Bash 下会被 MSYS 改成 `C:/Program Files/Git/ws`**（`MSYS_NO_PATHCONV=1` 又会打断 pnpm 的 corepack 启动器）→ 结论：这个参数用 PowerShell 传，或写进 compose 的 `args:`（本轮已写死在 compose 里，绕开整个坑） |
+
+#### 我没验到的（不猜，明写）
+
+1. **`docker compose up`**——我的 Docker CLI 在（29.3.1 / Compose 5.1.0）但 **daemon 没开**；且起容器是「副作用出这个工作树」，按规矩要点头。**两份 Dockerfile 一次都没真构建过**。
+2. **`nginx -t`**——环境里没有 nginx 二进制，那两份 conf **一行机器证据都没有**。最可能的第一次故障是 certbot 路径没对上，或 `Upgrade` 头没生效（判据就一条：F12 Network 里那根 socket 的状态码是不是 101）。
+3. **HTTPS + WSS + 手机跨网**，以及整条链路的真机表现。
+4. **变异探针本轮没跑**（跟上轮一样被权限层拦，没重试）。`logging.ts` 与 `serverUrl.ts` 的 `/ws` 分支是「先写用例看红、再实现」；Origin 闸门那 10 条里值钱的是**真进程实测**那一条。
+5. PowerShell 的进程/端口侦查与 `docker info` 探测被拦，`WebFetch` 外部文档也被拦——`ServerOptions` 那 14 个键是**编译器给的**，不是文档抄的。
+
+#### 怎么手动验（三条，命令都在 README「部署」一节）
+
+1. `cp .env.example .env`（`ALLOWED_ORIGINS` 留空也行）→ `docker compose up -d --build` → `curl http://<域名或IP>/ws/health` 期望 **200 JSON**（**这个 URL 是整条 nginx 链路的最短探针**：它同时验了反代、剥前缀、健康检查）→ 浏览器开 `http://<域名或IP>`，两台设备进同一个配对码打一局。
+2. F12 → Network → 那根 WS：`ws(s)://<host>/ws/<processId>/<roomId>`，状态 **101**；`docker compose logs -f server` 应该看到每行一个 JSON。
+3. `docker compose restart server` → 房间里的人应看到 M4.1 那句「房间已失效、回大厅」引导（**这条顺带把 M4.1 第 4 项在部署形态下验了一遍**）。
+
+#### 验收标准逐条自检（`TASKS.md:331-337`）
+
+- ❌ **本地 `docker compose up` 跑通完整对局**——daemon 没开，我没跑；唯一机器证据是 `compose config` 退出码 0
+- ❌ **VPS 上 HTTPS + WSS 正常**——需要真域名与真机器，配置与步骤已就位（`https.conf` + certbot profile + README 续期 cron）
+- ❌ **手机 4G/5G（非同局域网）连上并完整打一局**——同上，且这是前三条里唯一顺带能验 M2/M3/M4 全部手机端项的那一条
+- ✅ **`GET /health` 200**——真进程实测 200 + `routes.test.ts` 10 条覆盖 + 镜像 `HEALTHCHECK` 打的就是它 + compose 的 `service_healthy` 依赖它
+- ✅ **容器重启后自动恢复运行（`restart: unless-stopped`）**——两个服务都写了、`compose config` 解析通过。**口径说清**：这是 YAML 事实，"真的恢复"要 `docker kill` 一下才知道（在 ① 之后顺手能做）
+- ✅ **README 顶部有合规声明**——本来就在（`README.md` 第 3–5 行「纯虚拟筹码，无充值、无兑换、无回收、无提现」），本轮没动它一个字
+
+#### 遗留（登记，本轮没修）
+
+1. **server 镜像装了全量依赖**（含 `devDependencies`，vitest 那一整坨都在里面）。理由写在 Dockerfile 注释里：让镜像里那棵 `node_modules` 和跑 1580 条用例的那棵**完全一致**，少一套「生产安装口径」要记。想瘦就改 `pnpm install --prod`——`tsx` 已经是 dependencies 所以改得动，代价是容器里没有 vitest。
+2. **服务端没有 SIGTERM 优雅关桌**（不落盘、不通知在座的人）。本轮靠 compose 的 `init: true` 保证容器收得到信号；真做「关服时把手上这局保存」属于持久化，是 v2 的活。
+3. **2571 上还挂着我起的孤儿 node（PID 17560）**——`TaskStop` 只终止了 pnpm 父进程，按 PID 杀被权限层拦下，没重试。他可以直接杀，它跑的是本轮代码，不影响 5173/5174/2567。
+4. **Node 24 vs SPEC §5.1**（写的是 Node 20）是技术栈偏离，D-043 第 2 条登记了理由（Node 20 已于 2026-04 停止维护 + 仓库 `engines.node` 早就要求 `>=22`），**等他追认**，不认就换回去。
+5. **`ALLOWED_ORIGINS` 这个名字留着了，但它的实际覆盖面比名字暗示的小**（只覆盖 `/health` 及之后注册的路由）。改名或删掉都可以谈，本轮选择「留着 + 三处文档写清」。
+
+---
+
+### 【牌桌页 · 辅助控件收进工具条】 — 2026-09-27，`pnpm verify` **退出码 0 / 1556**（shared 532 / web **967** / server 57）
+
+**这不是 `TASKS.md` 里的任务。** 原话：「房主设置，回到等待室的那个框，表情能否都单独做为一个可点击的按钮，点击后才展开对应界面，我希望主要的游戏界面只有牌桌，底牌和操作」。三问三答定口径（AskUserQuestion，不是我自己挑的）：顶部那张卡 → **「动作按钮收起来，信息留着」**；表情 → **「点完一个就自己收起」**；房主面板 → **「整块收起来，开局也在里面」**（所以「开始牌局」也藏进抽屉，接受两次点击）。改动顺序按他那句「先提交 M4.2 再改动」：M4.2 先落成提交 `5142024`，本轮改动全部叠在它上面。
+
+#### 做了什么：四个文件，主界面剩下牌桌 / 底牌 / 行动 / 摊牌
+
+`TablePage.tsx`（工具条 + 那块局部 state）+ `EmoteBar.tsx`、`HostPanel.tsx`（各加 `id` / `hidden` 两个可选属性）+ `global.css`（`.table-toolbar` 一条、`[hidden]` 收回 `display` 一条）。
+
+- **工具条**换成顶卡里原来的 `.btn-row`：`回到等待室`（路由）/ `加速·原速`（本地动画档）/（有积压时）`跳过动画` / `表情` /（只有房主）`房主设置`。**没有复用 `.btn-row`**——那条是 `flex: 1 1 160px`，是给「弃牌 / 跟注 / 加注」这种要撑满一行的主行动用的；这排按文字宽度排、排不下就换行，命中区域仍由 `.btn` 的 `min-height: var(--tap)`（48px）兜着。
+- **信息行一寸没缩**：牌桌号、人数、阶段徽标、第 N 手、`当前下注`、行动/下一手倒计时、断线提示、快超时提示全部留在原位（他那句「动作按钮收起来，信息留着」）。
+- **展开的位置在按钮正下方**：表情托盘和房主面板从「行动卡下面」搬到顶卡之后（= 桌面上面）。原先那种「点顶部的钮、变化发生在两屏之外」是手机上最像「卡住了」的一种交互。
+- **`openPanel` 是 `'none' | 'emote' | 'host'` 一个值**，不是两个布尔：三值本身就写了「互斥」。不进 localStorage、不进快照 → 刷新回到「只剩钮」。
+- **断线时 `表情` / `房主设置` 两颗直接禁用**：它们点开的是「发出去 / 存进去」的表单，断线时展开只会得到一屏灰按钮。`回到等待室` 和 `加速` 不跟（一个不需要连接、一个是本地档）。
+- **开局那一刻收起房主面板**：判据是「上一份快照还是 `IDLE`、这一份不是」（`lastPhase` ref），**不是** `phase !== 'IDLE'`——后者会把这扇门永久关死，而房主在牌局中途仍要能打开看一眼那份被 `CONFIG_LOCKED` 锁住的配置（`开局之后开始按钮不亮` 那条用例钉的就是这个）。
+
+#### 一处刻意跟 M2.4 反着来（见 D-042）
+
+`.action-panel__toggle` 是「只在竖屏存在、≥768px 由 CSS `display:none` 掉」的抽屉。这**一次没有照抄**：折叠**不分视口**，宽屏也收。中途我写过一版「宽屏两颗钮退场、两块面板回到永远摊开」的 CSS（`@media (min-width: 768px)` 里把 `.card[hidden]` 的 `display` 逐个点名写回 `flex`），**又删了**——理由不是它不成立，是他批准的方案里没有这一条，替他决定「桌面上其实还摊着」等于让同一局里两个人的界面长得不一样，而且 jsdom 测不到那个分支（CSS 层叠测不了），网就漏了。
+
+#### 测试结果：7 新 + 8 改，**先看它红**
+
+`table.test.tsx` 新开一个 `describe('牌桌 · 工具条与折叠')` 7 条：默认收起（含 `aria-expanded="false"` 与「信息行不跟着收」两条反证）/ 点开再点收 / **点一个表情自己收** / **同屏只开一个** / 非房主没有那颗钮 / **IDLE 跃迁那一刻自动收起** / 断线两颗钮灰掉但加速与回等待室照旧。
+
+改 8 条既有用例：`房主面板` 6 条 + `表情` 1 条 + `seatEmote.test.tsx` 那条「发的和收的是同一份文案」——各加一步「先拉开抽屉」。`房主面板` 那 6 条**只多了一步点击，断言一个字没动**。
+
+**没有一条用例被删掉换数**：web 从 960 → **967**（+7），文件数 45 不变。`devTable` / `devReplayPage` 两处**不受影响**（`DevTablePage` 与 `DevReplayPage` 只引 `TableStage` / `ActionPanel` / `ShowdownPanel`，从来不引 `EmoteBar` / `HostPanel`）。
+
+RED 是实跑出来的：`pnpm --filter @poker-room/web test table.test.tsx seatEmote.test.tsx` 先 **14 条红**，报的都是同一句 `Unable to find an accessible element with the role "button" and name "表情"`（也就是缺钮，不是我写错断言）；实现之后同一条命令 **3 个文件 64 条全绿**，typecheck 与 lint 各自退出码 0。
+
+**变异探针这一轮没跑**：我起的两个探针（把 `setOpenPanel('none')` 摘掉、把 `previous === 'IDLE'` 强制成假）被权限层拦下，没有重试。代价说清楚——「点完表情自己收」和「开局自动收起」这两条**只证明了没有它们用例就红**（那次 RED），没证明「实现被单独摘掉时用例也红」。互斥那条我判它不需要探针：单个三值 state 在结构上构造不出「两个都开」。
+
+#### CSS 那条 `[hidden]` 是这轮最容易只红不响的地方
+
+`.card` 和 `.emote-bar` 自己都声明了 `display`，而**作者样式无条件盖过 UA 的 `[hidden] { display: none }`**。所以不写 `.card[hidden], .emote-bar[hidden] { display: none }` 这一条，抽屉**看着**收起了其实还摊着——而 testing-library 是按 `hidden` **属性**排除的（`queryByRole` 一律查不到），7 条新用例照样全绿。这是 M2.4 那条 `.action-panel__raise:not([hidden])` 同一个坑的另一面：**用例保的是无障碍树，不是像素**。所以这一条只能靠眼睛（下面「怎么手动验」第 2 条），我这边唯一能证明的是那条规则确实写在 `global.css:1787`，且全仓再没有第二处 `.card[hidden]` / `.emote-bar[hidden]` 会被它误伤。
+
+#### 怎么手动验（只有你能做：我这边的浏览器自动化被权限层拦了）
+
+`pnpm dev`（服务端 2567 + 前端 5173），电脑和手机都要过一遍，**横竖屏各一遍**：
+
+1. **默认形**：进 `/t/<码>`，主界面应当只剩 牌桌 → 我的底牌 → 行动（→ 摊牌时才多出结算）。顶上那张卡只有信息行 + 一小排钮。
+2. **抽屉真的收起**（这条是 CSS，测不了，只能看）：不点「表情」时，屏幕上**不该**看到那四颗灰按钮残影；「房主设置」同理。
+3. **两下能开局**（他接受过的代价）：点「房主设置」→ 点「开始牌局」。第二下之前看不到开局按钮是对的。
+4. **点完表情自己收**：选一个 → 座位那边冒气泡，同时托盘消失、钮回到收起态。
+5. **工具条会不会换行换得难看**：他判。手机上五颗钮（跳过动画出现时）在 360px 宽下大概两行，我不接受自己替他判这个叫不叫挤。
+6. **展开的面板把桌面顶下去**：点「房主设置」时整张桌子往下滑一屏，这是把展开放在按钮下面的必然代价——接受吗？不接受的退路是「展开时盖在桌面上（浮层）」，那要新写一层定位与关闭逻辑。
+
+#### 自检（对照他的三句回答 + 通用 DoD）
+
+- [x] 「房主设置 → 单独一颗可点击的钮，点开才展开」：**是**（含「开始牌局」）
+- [x] 「回到等待室的那个框 → 动作按钮收起来，**信息留着**」：**是**（信息行一字未动，钮进工具条）
+- [x] 「表情 → 单独一颗钮，点完一个就自己收起」：**是**（用例钉住 `sent=[emoji:laugh]` 且 `aria-expanded="false"`）
+- [x] 「主要界面只有牌桌、底牌、操作」：**是**（摊牌结算面板只在真有结果时出现，本来就是这个行为）
+- [x] `pnpm verify` 退出码 **0**：lint（含架构守卫 11 项）+ typecheck + test + build 串行全过
+- [x] 零 `any` / 零 `@ts-ignore` / 无新依赖 / 未碰 `TASKS.md` 顺序与验收标准 / 无充值类字段 / 底牌仍只走定向消息（本轮完全没碰数据链路）
+- [x] `pnpm -r build` 通过：入口 **1,171.96 kB / gzip 260.96 kB**（比 M4.2 那版涨 0.72 kB raw / 0.22 kB gzip），CSS **26.45 kB / gzip 5.84 kB**（涨 0.09 / 0.02）
+- [x] `PROGRESS.md` 已更新；`DECISIONS.md` 新增 **D-042**（折叠不分视口 + 展开位置放在按钮下面这两处取舍）
+- [ ] **他眼睛**：上面 6 条手动项（尤其 2、5、6）
+- **未提交**：本轮 **8 个文件**停在工作树里——代码与测试 6 个（`TablePage.tsx` / `EmoteBar.tsx` / `HostPanel.tsx` / `global.css` / `table.test.tsx` / `seatEmote.test.tsx`）+ 两本账（`PROGRESS.md` / `DECISIONS.md`）。他给过的是「先提交 M4.2 再改动」，授权的是那一次 commit；这一批要不要提交、什么时候提交，等他验收完再说。
 
 ### 【M4.2 · 音效】 — 2026-09-27，五个音效全部**代码合成**（产物里 0 字节音频）+ 页头开关 + 牌桌两路触发；`pnpm verify` **退出码 0 / 1549**（shared 532 / web **960** / server 57）
 
@@ -312,7 +443,7 @@
 1. **`pnpm test:cov`** —— 这是 `TASKS.md` M1.2 最后一条验收：`shared` 包覆盖率到达 **100% statements**（`sidepot.ts`）。**他 2026-09-27 实跑了，看的是 `% Stmts` 那一列：`sidepot.ts` = 100（58/58），全包 100（577/577）→ 这条验收成立。** 我上一版在这里多写了一句「`% Branch` 也应是 100」，那是我自己加的严标准、**不是 `TASKS.md` 的话**，实测 `% Branch` 是 97.36（37/38），缺口那条不可达防御分支的取证在 M1 清单第 50 行。门槛本身写在 `packages/shared/vitest.config.ts`：statements/functions/lines 100、**branches 95**，所以正常输出是**全绿退出码 0、不打任何 `ERROR: Coverage for ... does not meet threshold`**。
 2. **`pnpm --filter @poker-room/web peer <配对码> --name=检查员`** —— 验**底牌隐私铁律**（AGENTS.md 禁止项 2）最省事的一档：这是一个跑在终端里的"第二个玩家"，它会把**这个客户端收到的每一条消息**逐行打出来。`<配对码>` 就是**你在浏览器里创建房间之后，页面上显示的那 6 位码**（大写字母 + 数字，不含易混的 `I O 0 1`；也就是牌桌地址 `/t/XXXXXX` 里那 6 位）。要先 `pnpm dev` 起着服务端，它默认连 `http://localhost:2567`。正常输出：进去先打一行 `已进房 XXXXXX @ http://localhost:2567 · sessionId=… · 策略=旁观`，之后每行是 `底牌→我 A♠ Q♥（第 3 手）`、`状态 PREFLOP | 手#3 | …`。**判定标准只有一条**：`底牌→我` 这一行**永远只出现你自己那两张**；只要有一行打出别人的牌，铁律就破了。摊牌时打 `摊牌 座位 2 亮出 K♠ K♥` 是**正常**的——那是规则本来就公开的牌。想顺手造边池就再加一个窗口跑 `--play=shove`（一到三人各跑一次，全都打全下，主池+边池就出来了）。
 3. **`pnpm --filter @poker-room/web test -- --sequence.shuffle`** —— 验**用例之间没有互相依赖**：随机打乱 web 那 854 条的执行顺序，跑两遍。正常输出：两遍都是 `Test Files 40 passed (40)` / `Tests 854 passed (854)`。如果一遍红一遍绿，说明有用例残留了状态（这条只能你手上跑，我的权限层拦了 `--sequence.shuffle`）。
-4. **`node scripts/check-arch.mjs`** —— 11 项架构守卫，其中一条 `[no-real-money]` 是 AGENTS.md 第 7 条合规红线（不做充值/兑换/提现，连接口都不留）的机器版。正常输出：11 行 `OK [...]`，最后一行 `全部通过（11 项检查）`。**想确认它真咬得住**：随便在 `packages/web/src/` 某个 `.ts` 里加一行 `export const t = '充值';`，再跑一次 → 应该退出码 1 并打出文件、行号、命中词；把那行删掉再跑 → 回到全绿。这条是"红线守卫 vs 只在注释里写一句"的区别。
+4. **`node scripts/check-arch.mjs`** —— 11 项架构守卫，其中一条 `[no-real-money]` 是 AGENTS.md 第 7 条合规红线（不做充值/兑换/提现，连接口都不留）的机器版。正常输出：11 行 `OK [...]`，最后一行 `全部通过（11 项检查）`。**想确认它真咬得住**：随便在 `packages/web/src/` 某个 `.ts` 里加一行 `export const t = '充值';`，再跑一次 → 应该退出码 1 并打出文件、行号、命中词；把那行删掉再跑 → 回到全绿。这条是"红线守卫 vs 只在注释里写一句"的区别。**（后续更新：那条记录之后守卫已是 13 项，第 10 条管的是「声明了 `start` 的包，入口文件必须真的存在」，见【M4.3 · Docker 与部署】；同理第 3 条里那个"854 条"也已过期，现在 web 是 972。）**
 
 **C. 上一版就欠着、这一版顺手能一起判的**：M2 那六条手机 ⏳（竖屏 1.7:1 椭不椭圆、紧凑档密度、44px 触控高度撤掉后「入座」点不点得着、竖屏底池只剩数字、手机不画牌堆、横屏桌面只占屏宽 38%）——第 ⑤ 条现在有了新读法：牌堆仍然不画，但**牌会从那块空白飞出来**（③）。
 

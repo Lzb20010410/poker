@@ -418,9 +418,100 @@ A 的三条收益都是量出来的：**产物里 0 字节音频**（150KB 那�
 - 体积账（`pnpm build` 实测）：入口 chunk **1,166.42 kB / gzip 258.27 kB → 1,171.24 kB / gzip 260.74 kB**，即 raw **+4.82 kB / gzip +2.47 kB**。这是整条音效链路的代价，对照 D-023 那笔牌面内联的 +47.5 kB gzip，是噪声级。验收第 4 条「5 个音效总体积 < 150KB」按"音频资产 0 字节 + 代码 2.47 kB gzip"成立。
 - 用例：**+101 条**，5 个新文件（`soundSynth` 26 / `soundCues` 27 / `soundPlayer` 11 / `soundSettings` 6 / `soundWiring` 24）加 `devAssets` 的 7 条（试听区 1 + 逐颗按钮 5 + 静音档下不响 1）。web 由 859 → 960，全仓 1448 → **1549**（77 个测试文件）。
 - **探针记账（只跑了一次，说清是哪一次）**：把试听区那颗 `onClick={() => play(name)}` 改成 `play('deal')`（即"五颗按钮全放同一声"），`devAssets` 逐颗那 5 条**红了 4 条**（`chip`/`board`/`turn`/`win`），`deal` 那条与"顺序/文案"那条照旧绿——分辨力成立，因为它们钉的是"点哪颗响哪一声"而不是"响没响"。改回即全绿。**未做探针的部分**：`cues.ts` 那张触发表里"不响"的分支是逐条列出的（编译期由 `S2C_Broadcast` 的可辨识联合兜着，协议加一类事件必须在这里表态），所以没有单独演"把 `shuffle` 改成会响"这种红；`player.ts` 那三条门禁由 `soundPlayer.test.ts` 的具名用例正向覆盖，本轮没有再拆一次。
-- `SPEC.md` §4.7 那句「各 <30KB，ogg/mp3」**我没动**（规则 8 禁改 `TASKS.md` 的验收标准，SPEC 这一句按同样口径等他判）。他若判"要真录音"，就是上面的 B：需要一个来源与许可都清白的音源，外加一个编码器依赖——那要先立一条新的 DECISIONS 记录技术栈偏离。
+- `SPEC.md` §4.7 那句「各 <30KB，ogg/mp3」原样留着等他判（规则 8 的口径）。**2026-09-27 追认：按 A 定案**，SPEC §4.7 已改写为"代码合成、无音频文件"并留注释指向本条——B（真录音）这条路线仍然开放，代价与前置条件就是上面那一句。
 - 遗留：试听区在**生产包里也存在**（这两个 `/dev` 页面本来就没有 DEV 门，已登记在「遗留问题」，D-023 那条体积优先序不变）。手机端真声（验收第 3 条）与"音色像不像"只能他判。
 
+### D-042 · 牌桌辅助控件收进工具条：**不分视口**都收，抽屉开在**按钮下面**，「开局」按**跃迁**收起
+
+**日期**：2026-09-27　**任务**：非 `TASKS.md` 任务——他拿手机看过 M4.2 之后的牌桌页提的样式反馈　**决定者**：需求由他提，三条口径由他三问定（动作按钮收起来信息留着 / 点完一个表情就自己收 / 房主面板整块收起来，开局也在里面），其余细节 AI 自主
+
+**背景**
+他的原话是「房主设置，回到等待室的那个框，表情能否都单独做为一个可点击的按钮，点击后才展开对应界面，我希望主要的游戏界面只有牌桌，底牌和操作」。现状是这三样全摊在页面上：顶部 `.btn-row` 一排常驻按钮，`EmoteBar` 和 `HostPanel` 在「我的底牌 + 行动」那张卡**下面**，手机竖屏要往下滚很久才看得到牌桌。
+
+四个点需要定：收不收宽屏、抽屉展开在哪儿、断线时那两颗辅助钮怎么办、房主面板什么时候自己收。
+
+**选项**
+- 适用范围：**A** 所有视口一视同仁；**B** 只在窄屏收，宽屏照旧摊开（照 M2.4 `.action-panel__toggle` 那个"竖屏才折叠"的先例）
+- 展开位置：**A** 紧跟在工具条下面（信息行与桌面之间）；**B** 留在原位，点按钮只是把下面那块滚出来
+- 断线时：**A** 表情 / 房主设置两颗钮 `disabled`；**B** 照旧可点，里面每颗按钮各自灰着
+- 房主面板自动收的判据：**A** `IDLE → 非 IDLE` 这**一次跃迁**（`useRef` 记上一帧的 phase）；**B** 派生条件 `phase !== 'IDLE'`（一局里始终收着）
+
+**决定**
+A、A、A、A。工具条排在信息行下面、桌面上面，竖屏排不下就 `flex-wrap`；展开状态是局部 UI state（`useState<'none' | 'emote' | 'host'>`，**互斥**，同屏只开一个），不进 localStorage、不进快照；抽屉开在按钮正下方；断线时那两颗辅助钮直接灰掉；开局那一刻如果房主面板开着就收起它。
+
+**理由**
+**不分视口**这条是刻意的，和 M2.4 反着来。M2.4 的折叠是"窄屏放不下才收"，是几何问题；这一轮他给的判据是"主要界面只要牌桌、底牌、操作"，是**内容优先级**问题——桌面端那一排"表情 / 房主设置 / 加速 / 回到等待室"同样不是打牌要看的。而且给宽屏留例外等于让同一局里的两个人界面不一样：房主在电脑上看着配置面板摊开，玩家在手机上得点两下才够到同一颗按钮。代价是宽屏多一次点击，接受。
+
+**中途我写过一版按视口的 CSS**（`@media (min-width: 768px)` 里把 `.card[hidden]` 的 `display` 逐个点名写回 `flex`，即"宽屏两颗钮退场、两块面板回到永远摊开"），**又删了**。两个理由：一，他批的口径里没有这一条，我自己加的；二，`jsdom` 不跑媒体查询也不跑级联，这一版在测试网里**完全测不到**——留着一个只有眼睛能验、且未经批准的分支，是最容易烂在里面的那种代码。
+
+**展开位置在按钮下面**：`aria-controls` 指向的那块东西如果离按钮十万八千里，读屏的"展开"就变成"跳到页面另一头"；且他竖屏滚到下面才能改配置，正是他抱怨的那件事。副作用要说清：抽屉展开时**会把桌面顶下去**（不是浮层），一屏里牌桌会暂时看不到——这是"点一下就收回来"能接受的代价，做成浮层则要引定位与遮罩，超出这一轮。
+
+**断线时灰掉**：`offline` 下这些按钮点了全是 `disabled` 的空壳（表情条、配置表单、开始牌局本来就全禁），弹一抽屉不能按的东西比不弹更坏；而「回到等待室」是路由、「加速 / 原速」是本地状态，断线时反而是要用的，所以照旧可点。
+
+**跃迁而不是派生**：判据 B 会让房主在中局想改点什么都打不开面板（`phase !== 'IDLE'` 恒真 → 每次点开都被立刻收回，看起来像按钮坏了）。跃迁只在那一刻收，之后允许再打开，而再打开时 `editable` 本就是 `false`，「开始牌局」在那一局里不会亮——这条恰好是既有用例 `开局之后开始按钮不亮` 钉的行为，它现在多了一步"重新点开"，仍然成立。
+
+**代价，要说清**
+`hidden` 这件事在这一轮里有一处**测不出来**：`.card` 和 `.emote-bar` 都无条件声明了 `display: flex`，作者样式盖过 UA 的 `[hidden] { display: none }`，所以必须补一条 `.card[hidden], .emote-bar[hidden] { display: none }`。而 testing-library 是按 **`hidden` 属性**过滤可访问性节点的——就算这条 CSS 完全没写，7 条新用例**照样全绿**，页面上却是个"点表情什么也没收、抽屉永远摊着"的界面。这和 D-028 把音效做成验收面是同一类：机器答不了的那一半交给眼睛。同类还有**工具条会不会换行换得难看**、**抽屉展开时把桌面顶下去**这两条。
+
+**探针这一轮没跑**：两次变异探针（把 `.table-toolbar` 那两颗钮的 `disabled` 去掉、把自动收起那支 `useEffect` 的判据换成派生）都被权限层拦下，没有重试。所以新逻辑只拿到"实现之前必红"这一层证据（先写的 7 条，跑过 RED：14 条红）。
+
+**影响**
+- 改动面 4 个源文件 + 2 个测试文件，**没有新增文件**：`TablePage.tsx`（状态 + 工具条 + 两块面板换位）、`EmoteBar.tsx` / `HostPanel.tsx`（各加两个可选 `id` / `hidden` props）、`global.css`（`.table-toolbar` 与那条 `[hidden]` 兜底）。
+- 顺带清掉一处语义错位：`snapshot.isHost` 时那两句 `.table-page__warn`（断线 / 快超时）原先挤在 `.btn-row` 里跟按钮同行，现在移出按钮行、成为顶部卡片自己的子节点。
+- `HostPanel` 的根从 `card--wide` 那一节变成 `card card--accent` 带 `id`/`hidden`，`if (!snapshot.isHost) return null` 留着——非房主连抽屉都不该有。
+- 用例：`table.test.tsx` 新开 `牌桌 · 工具条与折叠` 7 条，另**改 8 条既有用例的进入步骤**（`房主面板` 6 + `表情` 1 + `seatEmote` 1，各多一步"先拉开抽屉"），**断言一个字没动**。web 960 → 967，全仓 1549 → **1556**。
+- 体积账（`pnpm build` 实测）：入口 `1,171.24 / gzip 260.74` → `1,171.96 kB / gzip 260.96 kB`，raw **+0.72 / gzip +0.22**；CSS `26.36 / 5.82` → `26.45 / 5.84`。两条都是噪声级。
+- 遗留：非房主那一侧只有「表情」一个抽屉（`房主设置` 那颗钮按 `snapshot.isHost` 不渲染，`HostPanel` 自己也 `return null`），所以 `hostPanelId` 这一号在非房主手里是白拿的——没有节点带它，也没有 `aria-controls` 指向空处。`useId` 的开销是一个字符串，登记在此只备查。
+
+
+### D-043 · 容器里跑的是**源码**（tsx）；同源校验挪到 **nginx**，因为服务端那道闸实测够不到 `/matchmake`
+
+**日期**：2026-09-27　**任务**：M4.3　**决定者**：AI 自主（「Node 版本偏离 SPEC §5.1」一条已于同日追认，见决定（二））
+
+**背景**
+M4.3 要把 server 和 web 装进两个容器。开工前有一件已经记在账上的事实：`packages/server` 的 `build` 是 `tsc --noEmit`，`dist/` **从来不存在**，所以 `"start": "node dist/main.js"` 是一句没验证过的话（PROGRESS 里 M1 对账轮已经标过"这是 M4.3 的硬前提"）。要部署，先得让服务端**真的能起来**。第二件是 SPEC §5.2 点名的三件部署要求：`ALLOWED_ORIGINS`、健康检查、结构化 JSON 日志。
+
+**选项（服务端产物怎么来）**
+- A：容器里直接 `tsx src/main.ts` — 优点：**跑的就是那一千五百多条用例跑过的那份源码**，没有第二条路径；改动只有 `start` 脚本和 `tsx` 挪个位置；缺点：镜像里多一个转译层，启动多约 1s
+- B：打开 `noEmit` 真编译出 `dist/` — 优点：跑的是官方推荐形态；缺点：`shared` 是**源码导出**（D-006）且全仓相对 import 不写扩展名，`tsc` 直出的 ESM 在 node 里**一条 import 都解析不动**，要么给全仓每个 specifier 补 `.js`，要么换打包器；而且 `main.ts` 用顶层 await，转 CJS 也不行
+- C：`node --experimental-strip-types` — 优点：无新依赖；缺点：同样是扩展名解析那一关过不去，且实验旗标
+
+**决定（一）**：A。`tsx` 从 `devDependencies` 升到 `dependencies`（AGENTS.md 要求运行时依赖必须记账，就是这条）。`startServer(port)` 的端口参数由"默认读 env"改成**必填**，端口解析和启动日志一起搬到 `main.ts`——`index.ts` 因此不再 import Colyseus 的 `logger`，测试 import 它时不会顺带改到日志格式。
+
+**决定（二）· Node 24 而非 SPEC §5.1 写的 Node 20**：Node 20 已于 2026-04 停止维护，且仓库自己的 `engines.node` 早就是 `>=22.0.0`（用 20 起镜像会在装依赖时就炸）。选 `node:24-bookworm-slim`，和开发机同大版本。**追认（同日，2026-09-27）**：他说「都没问题，你来决定」→ 定 Node 24，`SPEC.md` §5.1 那一行已改到 24 并留注释指向本条。
+
+**决定（三）· JSON 日志是自己写的**：Colyseus 的 `logger` 帮不上忙——它的公开成员只有 `debug / error / info / trace / warn` 五个（证据是编译器：`const all: Record<keyof typeof logger, 0> = {}` 报出的缺失成员清单就是这五个），没有格式开关。`ServerOptions` 里倒是有个 `logger` 键可以整体换掉（14 个键全探过：`publicAddress / presence / driver / transport / gracefullyShutdown / logger / beforeListen / database / express / auth / selectProcessIdToCreateRoom / isStandaloneMatchMaker / devMode / greet`），本轮**没换**：要对齐 5 个方法的签名，而 `PokerRoom.ts` 用的是全局 import 的那个 logger，换了之后它到底跟不跟着变，我不确定——不确定就不动。所以现状是一条明确的边界：**本进程的生命周期事件是 JSON**（`src/logging.ts`，sink / level / now 全注入，单测不改全局；循环引用字段只降级成一行带 `error` 的记录，绝不让日志把进程弄死），**Colyseus 自己那几行仍是它的格式**，两股都进 stdout，`docker logs` 里都在。
+
+**实测（这条是本条目存在的真正原因）**
+`ALLOWED_ORIGINS` 我按"express 中间件挡在 Colyseus 路由之前"写了闸，并在 `routes.test.ts` 里用真 express 验了 10 条——全绿。然后起真进程端到端打了一次（`PORT=2572 ALLOWED_ORIGINS=https://ok.example`）：
+
+| 请求 | 结果 |
+|---|---|
+| `POST /matchmake/create/poker` + `Origin: https://evil.example` | **200**，返回 `{"roomId":"WEKLYX","processId":"_JfybtBvV",...}` |
+| `GET /health` + 同一个 Origin | 403 |
+| `GET /definitely-not-a-route` + 同一个 Origin | 403 |
+
+**闸是装上了的，但它管不到 `/matchmake`。** 原因是 Colyseus 0.18 先把 cors 和 matchmake 挂到它自己的 app 上，**之后**才调用我们传进去的 `express` 回调；express 按注册顺序执行，我们后注册的中间件轮不到。`ServerOptions` 里也没有任何 CORS / 来源开关（上面那 14 个键就是全部）。所以那 10 条测试证的只是"我这道闸对**它之后**注册的路由有效"，而不是"部署形态下跨站来源被挡住了"——**如果我没起那个真进程，这条错误结论就会连同"HTTP 这一层是唯一的咽喉"那句话一起留在账本上**。顺带：D-010 里"路径前缀代理盖不住根级 `processId`"那句也是错的（0.14 时代的说法），已在上一轮改掉。
+
+**决定（四）· 真正的门放 nginx**：`deploy/nginx/*.conf` 的 `location /ws/` 里比 `$http_origin` 与 `$scheme://$http_host`，不等且非空就 403。比较对象是**运行时变量**而不是配置里的常量，所以域名、IP、端口、http/https 全都自动对上，`/ws` 那道前缀又是唯一公网入口（`server` 容器不映射宿主机端口，公网只听 80/443）。服务端那道闸**留着**当第二道：它管得住本文件注册的路由，也保证"有人把 2567 直接 `ports:` 暴露出去"时 `ALLOWED_ORIGINS`（SPEC §5.2 点名的变量）仍然不是一个只在文档里生效的开关。两处门机制不同这件事，`README`「谁能连进来」、`.env.example`、`routes.ts` 文档串三处都写明了。
+
+**决定（五）· 前端 endpoint 用同源前缀 `/ws`**：构建期由 `Dockerfile.web` 的 `ENV VITE_SERVER_URL=/ws` 注入。这里踩了一个**只在开发机存在**的坑：git bash 会把 `/ws` 按 MSYS 规则改写成 `C:/Program Files/Git/ws` 再交给 node，实测编出来的 bundle 里就是 `override:"C:/Program Files/Git/ws"`；同一个值用 PowerShell 传，得到的是 `override:"/ws"`。机制没问题，是本机 shell 的坑，容器里由 ENV 直接设置、不经 bash。**这条记下来是因为它会看起来像代码错了。**
+
+**我没验到的（别当成验过了）**
+- `docker compose up` 跑通完整对局：Docker CLI 在（29.3.1 / Compose 5.1.0），**daemon 没起**（Docker Desktop 关着），起不来。只有 `docker compose config --quiet` 过了（退出 0，语法与插值成立）。
+- nginx 两份配置的语法：本机无 nginx，`docker run --rm nginx:1.27-alpine nginx -t` 也要 daemon。**逐行读过，未被机器验证。**
+- HTTPS / WSS / 手机 4G 三条本来就归他做（要域名、要公网机器）。
+
+**影响**
+- 新增：`packages/server/src/logging.ts`、`packages/server/test/logging.test.ts`(9)、`packages/server/test/routes.test.ts`(10)、`.dockerignore`、`Dockerfile.server`、`Dockerfile.web`、`docker-compose.yml`、`deploy/nginx/default.conf`、`deploy/nginx/https.conf`、`.env.example`。
+- 改动：`main.ts`（重写：装配 logger、启动/失败各一行 JSON、`start` 口径变成 tsx）、`index.ts`（去掉启动 `logger.info`、`startServer(port)` 必填、`FALLBACK_PORT` 那句"vite proxy 指向这里"的过期注释改正）、`routes.ts`（闸 + 被实测推翻的文档串改正）、`package.json`（`start` → `tsx src/main.ts`，`tsx` 升为 dependency，`pnpm-lock.yaml` 已同步）、`serverUrl.ts` + `vite.config.ts` + `test/serverUrl.test.ts`（同源前缀，上一轮）、`README.md`（新增「部署」「谁能连进来」「上 HTTPS」「排错」）。
+- 用例 1556 → **1580**（web 967 → 972，server 57 → 76）。`pnpm verify` 串行退出 0；shared 532 / web 972 / server 76。
+- 体积不变：入口 `1,171.96 kB / gzip 260.96`，CSS `26.45 / 5.84`（本轮 web 只动了 `serverUrl.ts` 的注释与一个新函数）。
+- 顺手清掉的一处假话：`index.ts` 的 `FALLBACK_PORT` 注释说"web 包的 vite proxy 指向这里"——D-010 之后根本没有 vite proxy。
+- **把「构建绿却起不来」变成了机器规则**：`scripts/check-arch.mjs` 新增**第 10 条**（任何声明 `start` 的包，其命令里像入口文件的 token 必须能在源码树里找到）+ 一段 `selftest` 钉住抽取器。判据是"入口看得见"而不是"构建后有产物"，因为守卫跑在 `pnpm lint` 阶段、那时 `dist/` 本就该不存在（shared 是源码导出 D-006）。效果：`tsx src/main.ts` 过，谁把 `start` 改回 `node dist/main.js` 而不去真的产出它，`pnpm lint` 立刻红。**红绿双向探针跑过**（临时改 `start` → EXIT=1 只报 `[entry]`；还原 → EXIT=0）。守卫 **11 项 → 13 项**。这条是 PROGRESS 那条从 M0.1 挂到 M4.3 的遗留（"修完后请把它变成机器规则"）的结案，已移入「已解决」。
+- 遗留①：容器里连 devDependencies 一起装（两份 Dockerfile 里各有一段注释说明为什么以及怎么切到 `--prod`），换来的是"只有一棵 node_modules 口径"，代价是镜像里多了 vitest/typescript。
+- 遗留②：`main.ts` 没装 SIGTERM 处理器，`docker compose stop` 靠 `init: true` 转发信号 + 进程默认终止，不会有"优雅退出"那行日志；房间状态在内存里，v1 本来就是重启即清空（SPEC §5.2 已认）。
+- 遗留③：开发机上留了一个我杀不掉的进程——第一次冒烟测试用 `pnpm --filter ... start` 起在 **2571**，`TaskStop` 只回收了 pnpm 父进程，node 子进程还在听（按 PID 结束进程被权限层拦了，也没让我去查那个 PID）。第二次改成 `node --import tsx src/main.ts` 直起直停，2572 已经干净。2571 那个重启机器就没了，或者他自己关。
 
 
 ### D-024 · 桌布颜色是**牌桌配置**（房主改、全桌同步），不是客户端偏好

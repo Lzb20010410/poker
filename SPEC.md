@@ -317,7 +317,7 @@ const FIXTURE_HAND: S2C_Broadcast[] = [
 
 ### 4.7 音效（M4，可选但推荐）
 
-Web Audio API，5 个短音效（各 <30KB，ogg/mp3）：发牌、筹码碰撞、翻牌、轮到你的提示音、胜利。
+Web Audio API，5 个短音效：**代码合成，产物里不放音频文件**（发牌、筹码碰撞、翻牌、轮到你的提示音、胜利）。<!-- 2026-09-27 追认：原句「各 <30KB，ogg/mp3」按 D-041 方案 A 定案——音色表 + OscillatorNode 现场合成，音频资产 0 字节、无解码延迟、跨浏览器音色一致。改走真录音的前置条件（音源许可 + 编码依赖 + 新的技术栈偏离记录）写在 D-041 -->
 **必须有静音开关，默认开启，首次交互后才能播放（浏览器自动播放策略）。**
 
 ---
@@ -327,14 +327,15 @@ Web Audio API，5 个短音效（各 <30KB，ogg/mp3）：发牌、筹码碰撞�
 ### 5.1 目标形态
 
 单台 VPS（2核4G，¥50-100/月），Docker Compose 两个容器：
-- `server`：Node 20 + Colyseus（ws）
+- `server`：Node 24 + Colyseus（ws），容器里跑 `tsx src/main.ts`（源码直跑，见 D-043）<!-- 2026-09-27 追认：原句 Node 20 —— 20 线已于 2026-04 停止维护，且仓库 engines.node 早已是 >=22 -->
 - `web`：nginx 托管静态构建产物 + 反代 `/ws` 到 server
 
 ### 5.2 要求
 
 - HTTPS（Let's Encrypt，nginx certbot）—— **Colyseus 的 wss 必须要 HTTPS 才能从 https 页面连接**
 - 无数据库（v1 不做持久化）
-- 环境变量：`PORT`、`NODE_ENV`、`ALLOWED_ORIGINS`
+- 环境变量：`PORT`、`NODE_ENV`、`ALLOWED_ORIGINS`（+ `LOG_LEVEL`）
+  <!-- 2026-09-27 实测更正：`ALLOWED_ORIGINS` 在 express 这一层**挡不住 `/matchmake`**（Colyseus 0.18 先挂自己的 cors 与 matchmake，之后才调我们传的 express 回调）。部署形态下的同源判定落在 nginx（`deploy/nginx/*.conf` 里那三段 `if`），取证与推过程见 D-043 -->
 - 健康检查 `GET /health`
 - 日志：结构化 JSON 到 stdout，Docker 收走
 - 房间状态只在内存中；进程重启所有房间丢失（v1 可接受，需在 UI 提示）
@@ -342,7 +343,7 @@ Web Audio API，5 个短音效（各 <30KB，ogg/mp3）：发牌、筹码碰撞�
 ### 5.3 开发环境
 
 ```
-pnpm dev          并行启动 server (:2567) + web (:5173)，web 通过 vite proxy 连 ws
+pnpm dev          并行启动 server (:2567) + web (:5173)，web 直连 `ws://<当前主机名>:2567`（vite **故意不配 proxy**，理由见 D-010 与 `vite.config.ts` 注释；生产才走 `/ws` 前缀）
 pnpm test         全量 vitest
 pnpm build        全量构建
 pnpm lint         eslint + prettier check
