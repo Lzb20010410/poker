@@ -113,6 +113,17 @@ const POT_HALF_FRACTION = 0.42;
 /** 公共牌低于这条线就只是几个色块，读不出牌面（也是"该不该收底池标签"的判据） */
 export const CARD_READABLE_MIN = 22;
 
+/**
+ * 牌堆搜索的**第一档**（偏右上 45°、半径 0.86）——下面 `centerPieces` 里那两个数组的首选项
+ * 就是这两个常量，改动必须一起改。
+ *
+ * 单独导出是因为动画层也要它：窄屏满桌时牌堆被挤掉（`deck === null`，SPEC §4.2），
+ * 发牌总得有个起飞点，那一刻算的就是「牌堆本来该在哪」。两条路算同一个点，
+ * 有没有画出那摞牌背才不会让牌的轨迹跳一截。
+ */
+export const DECK_BEARING = 45;
+export const DECK_RADIUS = 0.86;
+
 export interface StageSize {
   readonly width: number;
   readonly height: number;
@@ -265,6 +276,25 @@ function intersects(a: Box, b: Box): boolean {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }
 
+/**
+ * 桌面椭圆上的一点：`radius` 是半轴比例（1 = 正好贴在椭圆上），`bearingDeg` 以 12 点为 0、
+ * 顺时针增大（所以 x 取 sin、y 取 -cos）。
+ *
+ * 牌堆搜索用它试各个落点，动画层在牌堆不存在时用它取第一档当起飞原点。不做 `round`：
+ * 搜索那条路自己会在最后一步取整，这里多取一次会让牌堆框整体漂 0.01px。
+ */
+export function feltPointAt(
+  felt: Box,
+  radius: number,
+  bearingDeg: number,
+): { readonly x: number; readonly y: number } {
+  const rad = (bearingDeg * Math.PI) / 180;
+  return {
+    x: felt.x + felt.w / 2 + (felt.w / 2) * radius * Math.sin(rad),
+    y: felt.y + felt.h / 2 - (felt.h / 2) * radius * Math.cos(rad),
+  };
+}
+
 /** 五格公共牌 + 底池 + 牌堆：都从椭圆中心长出来，尺寸跟桌面等比 */
 function centerPieces(felt: Box, seats: readonly Box[]): {
   board: readonly Box[];
@@ -371,14 +401,17 @@ function centerPieces(felt: Box, seats: readonly Box[]): {
    * 屏幕方位角：0 = 12 点，顺时针增大（x 取 sin、y 取 -cos）。
    * 只取 15°~75°：**不含** 0 和 90，那两个会让牌堆正好落在中心的正上方/正右方，
    * 而 SPEC §4.2 要的是「偏右上」，两个方向都得偏出去一点。
+   *
+   * 首项就是导出的 `DECK_BEARING`/`DECK_RADIUS`——牌堆被挤掉时动画层退去用的那一点，
+   * 与这里「最想落的那一档」是同一个表达式，不是两份会跑偏的字面量。
    */
-  const bearings = [45, 30, 60, 15, 75];
-  const radii = [0.86, 0.8, 0.74, 0.68, 0.62, 0.56, 0.5, 0.44, 0.38, 0.32, 0.26, 0.2, 0.14];
+  const bearings = [DECK_BEARING, 30, 60, 15, 75];
+  const radii = [DECK_RADIUS, 0.8, 0.74, 0.68, 0.62, 0.56, 0.5, 0.44, 0.38, 0.32, 0.26, 0.2, 0.14];
   const deckBoxAt = (radius: number, bearing: number, scale: number): Box => {
-    const rad = (bearing * Math.PI) / 180;
+    const anchor = feltPointAt(felt, radius, bearing);
     return {
-      x: round(cx + rx * radius * Math.sin(rad) - (cardW * scale) / 2),
-      y: round(cy - ry * radius * Math.cos(rad) - (cardH * scale) / 2),
+      x: round(anchor.x - (cardW * scale) / 2),
+      y: round(anchor.y - (cardH * scale) / 2),
       w: round(cardW * scale),
       h: round(cardH * scale),
     };

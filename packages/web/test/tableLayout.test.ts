@@ -18,11 +18,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DECK_BEARING,
+  DECK_RADIUS,
   FALLBACK_STAGE,
   POT_CLEARANCE,
   POT_LINE_HEIGHT,
   POT_NUMBER_LINE,
   READABLE_SEAT_FLOOR,
+  feltPointAt,
   layoutTable,
   OPPOSITE_SEAT_SCALE,
   PORTRAIT_MAX_VIEWPORT_WIDTH,
@@ -199,6 +202,27 @@ describe('无溢出', () => {
     if (deck === null) throw new Error('横屏 1440×900 / 8 人这一格该有牌堆的位置');
     expect(deck.x + deck.w / 2).toBeGreaterThan(center.x);
     expect(deck.y + deck.h / 2).toBeLessThan(center.y);
+  });
+
+  /**
+   * 兜底起飞点与牌堆搜索共用 `feltPointAt` 和 `DECK_*` 常量（那两个数组的首项就是它们本身），
+   * 所以「有牌堆 / 没牌堆两条路算同一个点」是构造上成立的，不需要用例去对齐两边的数字。
+   * 这里钉的是这个点**本身**合不合格：12 点为 0 度、顺时针、半径是半轴的比例。
+   * sin/cos 用反了它会跑到别的象限，那一刻手机上的发牌就从桌面外某个角落飞出来。
+   */
+  it('兜底起飞点在桌面中心的偏右上，且正好落在第一档半径的椭圆上', () => {
+    const { felt } = layoutTable({ ...LANDSCAPE, capacity: 8 });
+    // 一切以 `felt` 自己算出来的中心为准：`layout.center` 是取整前的那个点，差 0.005px
+    const cx = felt.x + felt.w / 2;
+    const cy = felt.y + felt.h / 2;
+    const top = feltPointAt(felt, 1, 0);
+    expect(top.x).toBeCloseTo(cx, 6);
+    expect(top.y).toBeCloseTo(felt.y, 6);
+    const p = feltPointAt(felt, DECK_RADIUS, DECK_BEARING);
+    expect(p.x).toBeGreaterThan(cx);
+    expect(p.y).toBeLessThan(cy);
+    const onEllipse = Math.hypot((p.x - cx) / (felt.w / 2), (p.y - cy) / (felt.h / 2));
+    expect(onEllipse).toBeCloseTo(DECK_RADIUS, 6);
   });
 
   /**

@@ -413,9 +413,9 @@ describe('编译层', () => {
 });
 
 /**
- * 积压上限那笔账（SPEC §3.1「积压超过 5 段直接作废、直接渲染终态」）。
+ * 积压上限那笔账（SPEC §3.1「积压超过 12 段直接作废、直接渲染终态」）。
  *
- * `DevReplayPage` 文件头那句「哪几帧天生超线，`test/devReplay.test.ts` 把它逐帧钉成了一份清单」
+ * `DevReplayPage` 文件头那句「哪几帧最重，`test/devReplay.test.ts` 把它逐帧钉成了一份清单」
  * 指的就是这一段。为什么钉在**计划**这一层、不在页面上看：jsdom 量不到真实盒子，
  * 找不到落点的那段动画会同步落终态、当场出队，于是页面上「队列 N 段」的峰值比浏览器里少一段。
  * 在页面上断言超线，测的是 jsdom 而不是玩家的屏幕。计划段数是纯函数，两边同一个数。
@@ -453,7 +453,7 @@ describe('每一帧排几段动画（积压上限的账）', () => {
     return REPLAY_SCENARIOS.map((scenario) => `${scenario.id}\n${table(scenario).join('\n')}`).join('\n\n');
   }
 
-  it('三个场景的峰值：只有边池的最后一帧越过上限', () => {
+  it('三个场景的峰值：最重的一帧 6 段，留在上限之内', () => {
     const peaks: Record<string, number> = {};
     const over: string[] = [];
     for (const scenario of REPLAY_SCENARIOS) {
@@ -475,7 +475,11 @@ describe('每一帧排几段动画（积压上限的账）', () => {
      * 所以那一帧没有亮牌那一段。
      */
     expect(peaks, listing()).toEqual({ 'eight-max-chop': 4, 'side-pots': 6, 'heads-up-walk': 3 });
-    // 三个池 = 三份派彩动画，正是这一帧把 5 段的额度顶穿的（取舍记在 DECISIONS.md）
-    expect(over, listing()).toEqual(['side-pots 第 16 帧「4 号全进 → 三个池依次派彩」= 6 段']);
+    /*
+     * 最重的一帧是边池场景最后一帧：三个池 = 三份派彩动画，6 段。
+     * 它在旧上限 5 之下会被整队作废（三池不演派彩），D-036 把上限抬到 12 之后落在额度内。
+     * 所以这条断言的真实作用是**反向守卫**：谁把 `ANIM_BACKLOG_LIMIT` 调回 5，这里立刻变红。
+     */
+    expect(over, listing()).toEqual([]);
   });
 });

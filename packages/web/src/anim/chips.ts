@@ -39,8 +39,12 @@ export interface ChipGroup {
 /**
  * `amount` 不是正整数时给空数组：金额单位是整数筹码，非整数是调用方的 bug，
  * 而不是这里该替它编出一堆筹码的理由。
+ *
+ * `maxGhosts` 默认就是动画那一份预算。底牌区那一叠静态筹码要的是另一个密度
+ * （5 枚，见 `ChipStack`），分解规则一样，只是画得少一点。
+ * 面额本身比预算还多时每种至少画一枚——那一叠是 6 枚，不是 5 枚，但少了哪一种都读不出这堆钱。
  */
-export function splitChips(amount: number): readonly ChipGroup[] {
+export function splitChips(amount: number, maxGhosts = MAX_CHIP_GHOSTS): readonly ChipGroup[] {
   if (!Number.isInteger(amount) || amount <= 0) return [];
 
   const groups: { denom: ChipDenomination; count: number }[] = [];
@@ -52,7 +56,7 @@ export function splitChips(amount: number): readonly ChipGroup[] {
     left -= count * denom;
   }
 
-  let budget = MAX_CHIP_GHOSTS - groups.length;
+  let budget = Math.max(0, maxGhosts - groups.length);
   return groups.map((group) => {
     const extra = Math.max(0, Math.min(group.count - 1, budget));
     budget -= extra;

@@ -28,7 +28,7 @@ import { Client, type ColyseusSDK } from '@colyseus/sdk';
 import type { C2S } from '@poker-room/shared/view';
 
 import { readBroadcastEvent } from './events';
-import { ConnectionTimeoutError } from './errors';
+import { ConnectionTimeoutError, describeConnectionError } from './errors';
 import { currentServerUrl } from './serverUrl';
 import { clearToken, readToken, saveToken, tokenKey, type RawTokenStorage } from './storage';
 import type { SdkRoomLike, SyncedRoomState } from './sdkTypes';
@@ -52,6 +52,15 @@ const COMMAND_CHANNEL = 'command';
 
 /** 提示最多留几条：玩家不看历史，只看得懂「刚刚发生了什么」 */
 const NOTICE_LIMIT = 5;
+
+/**
+ * 连续掉到第几次才劝玩家刷新。
+ *
+ * 一次掉线 SDK 自己会重试约 56 秒（见 `types.ts` 的 `LinkState`），所以「连着三次」
+ * 意味着三段重试窗口全白等 —— 这时候继续盯着这张不动的牌桌没有意义，
+ * 刷新才会重新走一遍 `joinRoom`：sessionStorage 里的凭证还在，座位能续上。
+ */
+const DROP_STREAK_HINT = 3;
 
 export interface GameClientOptions {
   /**
@@ -80,6 +89,28 @@ function isExpiredReconnectionToken(error: unknown): boolean {
   if (shape.name !== 'MatchMakeError' || typeof shape.message !== 'string') return false;
   return /reconnection token|token (invalid|expired)/i.test(shape.message);
 }
+
+/**
+ * 这条凭证还有没有救。`null` = 还有救（暂时性故障，必须留着）；否则给出换身份时该说的原因。
+ *
+ * `room-not-found` 也算"没救"是 M4.1 实测出来的：服务端重启或房间解散之后，
+ * `reconnect` 抛的是 `code === 522` + `room "X" has been disposed.`，**和凭证过期是两种错**，
+ * 但结果一样——那个 `roomId:token` 指向的对象已经不在这个进程里了，再试一百次也不会回来。
+ * 不清掉的话，玩家刷新永远卡在同一条错误上（配对码会被回收复用，这条死凭证还会挡住新房间）。
+ *
+ * 满员**故意不算**在这里：它和房间消失共用 522，只有 message 里的 `is locked` 分得开，
+ * 判错方向的代价不对称——把满员当成分散会让玩家以为坐进去了，其实是换身份挤进了别的桌。
+ */
+function deadTokenReason(error: unknown): 'expired' | 'gone' | null {
+  if (isExpiredReconnectionToken(error)) return 'expired';
+  return describeConnectionError(error).kind === 'room-not-found' ? 'gone' : null;
+}
+
+/** 换身份这件事必须说出来：玩家看到的是"我的座位没了"，得知道是谁把他换掉的 */
+const DEAD_TOKEN_NOTICES: Record<'expired' | 'gone', string> = {
+  expired: '之前的重连凭证已过期，我用新身份重新加入了这个房间。',
+  gone: '这个房间已经不存在了（服务端重启或牌局已解散），我用新身份重新加入了这个配对码。',
+};
 
 // ---------------------------------------------------------------------------
 // 提示（notice）
@@ -157,6 +188,8 @@ function toConnection(
   /** 底牌属于哪一手。当前手不知道时（还没收到 patch）先收下，事后对不上再丢 */
   let holeHandId: string | null = null;
   let seenHandId = '';
+  /** 这条连接上连着掉了几次。真接回去过一次就归零，见 `DROP_STREAK_HINT` */
+  let dropStreak = 0;
 
   const snapshot = (): RoomSnapshot =>
     buildSnapshot(room.state, { code, myId: room.sessionId, privateView, actionPending: pendingKey !== null });
@@ -227,6 +260,7 @@ function toConnection(
     if (awaitingFreshState) {
       // onReconnect 到这里的间隔里 token 已经换新、状态已经推全，此时才允许操作。
       awaitingFreshState = false;
+      dropStreak = 0;
       if (link === 'reconnecting') {
         link = 'online';
         notifyLink();
@@ -240,6 +274,10 @@ function toConnection(
     if (disposed) return;
     link = 'reconnecting';
     pendingKey = null;
+    dropStreak += 1;
+    if (dropStreak === DROP_STREAK_HINT) {
+      notices.push('info', `这条连接已经连着断了 ${DROP_STREAK_HINT} 次，自动重连多半救不回来了。刷新这一页通常能续上原来的座位。`);
+    }
     notifyLink();
   };
   const onReconnect = (): void => {
@@ -493,12 +531,13 @@ export function createGameClient(
         try {
           return await establish(() => sdk.reconnect(token), code, notices);
         } catch (error) {
-          if (!isExpiredReconnectionToken(error)) {
+          const reason = deadTokenReason(error);
+          if (reason === null) {
             // 暂时性故障：凭证留着，界面按失败处理，玩家重试的还是同一个身份。
             throw error;
           }
           clearToken(store, key);
-          notices.push('info', '之前的重连凭证已过期，我用新身份重新加入了这个房间。');
+          notices.push('info', DEAD_TOKEN_NOTICES[reason]);
         }
       }
       return establish(() => sdk.joinById(code, { ...profile }), code, notices);

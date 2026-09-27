@@ -187,6 +187,18 @@ describe('动画 DOM 契约 · 锚点键', () => {
     expect(scene.find('deck') === null).toBe(deck === null);
   });
 
+  /**
+   * `felt` 这个键不是给动画「遮」用的，是**量**的：手机横屏满桌时牌堆被几何挤掉，
+   * 发牌的起飞点得从桌面椭圆算出来（`kit.ts` 的 `deckCenter`）。挂错节点这条就废了——
+   * 尺寸这里量不到（jsdom 恒为 `0×0`），所以钉的是「键落在桌面那张图上」这件事本身。
+   */
+  it('桌面自己有键，而且挂在桌面那张图上', async () => {
+    const { scene } = await mountTable();
+    const felt = scene.find('felt');
+    expect(felt === null).toBe(false);
+    expect(felt?.classList.contains('felt-stage__felt')).toBe(true);
+  });
+
   it('我自己的底牌不在座位格里，只在 `.hole-strip` 那一格', async () => {
     const { scene } = await mountTable();
     // 两处都挂 `hole-0` 的话 `find` 只会命中文档里第一个，发牌动画就飞错地方

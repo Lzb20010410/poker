@@ -142,14 +142,14 @@ describe('任务身份', () => {
     expect(plans[0]?.event).toBe(event);
   });
 
-  it(`积压到第 6 段就整条作废：重连补历史时画面直接给终态`, () => {
+  it(`积压到第 13 段就整条作废：重连补历史时画面直接给终态`, () => {
     const plans: AnimPlan[] = [];
     const { director } = directorFor(WIDE, plans);
-    for (let i = 0; i < 6; i += 1) director.handle({ t: 'shuffle' });
+    for (let i = 0; i < 13; i += 1) director.handle({ t: 'shuffle' });
     expect(director.queue.state().blocked).toBe(false);
     expect(director.queue.state().pending).toEqual([]);
-    // 作废不等于丢弃：六段都到过终态，渲染层的清理钩子一段都不能少
-    expect(plans).toHaveLength(6);
+    // 作废不等于丢弃：十三段都到过终态，渲染层的清理钩子一段都不能少
+    expect(plans).toHaveLength(13);
   });
 });
 

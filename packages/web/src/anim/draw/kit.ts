@@ -25,6 +25,7 @@
 
 import { gsap } from '../gsap';
 import { fitTimeline, type AnimJob } from '../job';
+import { DECK_BEARING, DECK_RADIUS, feltPointAt } from '../../table/layout';
 import { boxCenter, type AnimScene, type Box, type MaskRelease, type Point } from '../scene';
 
 /** 补扫窗口。10 帧 ≈166ms，足够覆盖一次 commit，又短到不会有「遮了半天结果不播」的观感 */
@@ -159,13 +160,33 @@ export function boardKey(index: number): string {
 /**
  * 牌堆中心，飞行类动画的公共起点。
  *
- * 窄屏满桌时几何会把牌堆挤掉（`layout.deck === null`，SPEC §4.2「宁可少一个装饰」），
- * 那一刻没有起点。调用方拿到 `null` 就该让整段不播（`body` 返回 false），
- * 而不是把起点猜成屏幕中心——从屏幕中央飞出来的牌比没有动画更怪。
+ * 窄屏满桌时几何会把牌堆挤掉（`layout.deck === null`，SPEC §4.2「宁可少一个装饰」）——
+ * 那一刻**牌堆那一格不画，但起飞点还得有**。所以退一步从桌面椭圆算「牌堆本来该在哪」：
+ * `feltPointAt(felt, DECK_RADIUS, DECK_BEARING)` 正是 `layout.ts` 搜索的第一档，
+ * 两条路算同一个点，有没有那摞牌背都不会让牌的轨迹跳一截。
+ *
+ * 桌面也量不到时才返回 `null`（那一刻真的没有任何位置可依据）。调用方拿到 `null`
+ * 就该让整段不播（`body` 返回 false），而不是把起点猜成屏幕中心——
+ * 从屏幕中央飞出来的牌比没有动画更怪。
+ * 为什么不画一个占位牌堆、为什么用第一档：记在 DECISIONS.md D-037（D-029 那条的返工）。
  */
 export function deckCenter(scene: AnimScene): Point | null {
   const deck = scene.box('deck');
-  return deck === null ? null : boxCenter(deck);
+  if (deck !== null) return boxCenter(deck);
+  const felt = scene.box('felt');
+  if (felt === null) return null;
+  /*
+   * 两个 `Box` 不是一回事：动画层量到的是 `{left, top, width, height}`（相对幽灵层原点），
+   * `layout.ts` 那套是 `{x, y, w, h}`。这里只做一次换名，不做换算——层原点已经减掉了，
+   * 两个坐标系本来就是同一个。
+   */
+  const anchor = feltPointAt(
+    { x: felt.left, y: felt.top, w: felt.width, h: felt.height },
+    DECK_RADIUS,
+    DECK_BEARING,
+  );
+  // 与 layout 同一口径：坐标最终是 CSS 的 px，两位小数
+  return { x: Math.round(anchor.x * 100) / 100, y: Math.round(anchor.y * 100) / 100 };
 }
 
 /**

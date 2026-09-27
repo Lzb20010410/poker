@@ -277,8 +277,10 @@ export function SeatList({
                 <span className="seat__name" title={player.nickname}>
                   {displayNickname(player.nickname)}
                 </span>
-                {/* key 挂在人身上：换座时不该看到上一个人的筹码滚到我头上 */}
-                <ChipCount key={player.id} value={player.chips} />
+                {/* key 挂在人身上：换座时不该看到上一个人的筹码滚到我头上。
+                    我那一格不画（D-038）：余额搬到底牌区那一叠筹码旁边，同一数额留两处
+                    读数反而对不上；窄屏那一格本来也把七位数裁掉了。 */}
+                {!isMine && <ChipCount key={player.id} value={player.chips} />}
                 {holes !== null && (
                   <span className="seat__hole" data-anim={`hole-${seatIndex}`}>
                     {holes.map((card, index) => (

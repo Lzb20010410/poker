@@ -122,6 +122,28 @@ describe('真实适配器边界（不替换规则）', () => {
     expect([...f.storage.data.values()]).toEqual(['K7QM3D:new-secret']);
     await f.connection.leave(); expect(f.storage.data.size).toBe(0);
   });
+  /**
+   * M4.1「连续掉线 3 次提示改用刷新」。计数的是**同一条连接上**的 `onDrop` 次数：
+   * SDK 一次掉线会自己重试约 56 秒，所以「掉三次」意味着三段重试窗口全都白等，
+   * 这时候玩家该做的是刷新（走 sessionStorage 凭证续座），而不是继续盯着这张不动的牌桌。
+   * 中途真接回去过一次就必须归零——否则玩了两小时偶发断三次，也会被劝去刷新。
+   */
+  it('连续掉线第三次劝一次刷新，接回去过就重新计数，第四次不重复刷屏', async () => {
+    const f = await connect(false);
+    const hints: string[] = [];
+    f.connection.onNotice((notice) => { if (notice.message.includes('刷新')) hints.push(notice.message); });
+    f.room.onDrop.emit(1006);
+    f.room.onReconnect.emit();
+    f.patch();
+    f.room.onDrop.emit(1006);
+    f.room.onDrop.emit(1006);
+    expect(hints).toEqual([]);
+    f.room.onDrop.emit(1006);
+    expect(hints).toHaveLength(1);
+    f.room.onDrop.emit(1006);
+    expect(hints).toHaveLength(1);
+    await f.connection.leave();
+  });
   it('仅传递显示版本的 action，pending 挡双击直到 patch/error/drop', async () => {
     const f = await connect(false);
     const action = { t: 'action', handId: 'hand-1', turnVersion: 1, action: { type: 'call' } } as const;

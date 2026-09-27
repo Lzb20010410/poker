@@ -48,6 +48,7 @@ const LAYER = '100,50,800,600';
 /** 一张 2-3 人的迷你牌桌：所有锚点都在，尺寸各不相同（否则「坐标只有一个原点」测不出来） */
 const HTML = `
 <div id="page" style="position:relative">
+  <div data-anim="felt" data-rect="200,150,600,300"></div>
   <div data-anim="deck" data-rect="520,120,40,56"></div>
   <div data-anim="pot" data-rect="360,300,120,28"></div>
   <div data-anim="seat-0" data-rect="140,420,120,70"></div>
@@ -145,12 +146,26 @@ describe('发牌顺序从画面里读', () => {
     expect(holeSeats(scene)).toEqual([0, 1]);
   });
 
-  it('牌堆被几何挤掉时起点是 null，不猜一个屏幕中心', () => {
+  it('牌堆被几何挤掉时，起点退到「牌堆本来该在」的那一档，不猜屏幕中心', () => {
     stubRects();
     const scene = mount();
     // deck 在视口 520,120，layer 在 100,50 → 相对原点 420,70，加半张牌
     expect(deckCenter(scene)).toEqual({ x: 440, y: 98 });
     scene.find('deck')?.remove();
+    /*
+     * 兜底：从桌面椭圆现算「牌堆最想落的那一档」（`layout.ts` 的 `DECK_RADIUS` 0.86、
+     * `DECK_BEARING` 45°）。fixture 的 felt 在视口 200,150,600,300 → 相对层 100,100,600,300，
+     * 半轴 300×150。注意这只是**偏好档**：真画出牌堆时它可能被搜索挪到更靠里的一档，
+     * 那一刻起点读的是 `deck` 而不是这里。
+     */
+    expect(deckCenter(scene)).toEqual({ x: 582.43, y: 158.78 });
+  });
+
+  it('连桌面都量不到才是 null：那一刻真的没有任何位置可依据', () => {
+    stubRects();
+    const scene = mount();
+    scene.find('deck')?.remove();
+    scene.find('felt')?.remove();
     expect(deckCenter(scene)).toBeNull();
   });
 
@@ -267,10 +282,35 @@ describe('找不到落点就整段不演', () => {
     expect(masked(scene)).toEqual([]);
   });
 
-  it('牌堆没了 → 发牌与公共牌都不演', () => {
+  /**
+   * 窄屏满桌时 `layout.deck === null`，牌堆那一格不画（SPEC §4.2「宁可少一个装饰」）。
+   * 那一刻发牌照样得有个起飞的地方——兜底点由桌面椭圆算出，正是牌堆搜索的第一档。
+   * 画不出牌堆不等于没有牌桌。
+   */
+  it('牌堆没了但桌面还在 → 发牌与公共牌照样演', () => {
     stubRects();
     const scene = mount();
     scene.find('deck')?.remove();
+    const cases: readonly [AnimPlan, (subject: AnimPlan, stage: AnimScene) => AnimJob | null][] = [
+      [plan('deal', { t: 'deal:start', count: 2, startSeat: 0 }), dealJob],
+      [plan('board', { t: 'board:deal', phase: 'flop', cards: [ace, king, deuce] }), boardJob],
+    ];
+    for (const [subject, make] of cases) {
+      const job = make(subject, scene);
+      if (job === null) throw new Error(`${subject.event.t}：计划本身是合法的，不该在 builder 就返回 null`);
+      const done = vi.fn();
+      job.start(600, done);
+      expect(done, subject.event.t).not.toHaveBeenCalled();
+      expect(ghosts(scene), subject.event.t).toBeGreaterThan(0);
+      job.dispose();
+    }
+  });
+
+  it('牌堆和桌面都没了 → 发牌与公共牌都不演', () => {
+    stubRects();
+    const scene = mount();
+    scene.find('deck')?.remove();
+    scene.find('felt')?.remove();
     // 一段一段来：两段的遮罩名单不一样，同时挂在台上会互相干扰 masked() 的读数
     const cases: readonly [AnimPlan, (subject: AnimPlan, stage: AnimScene) => AnimJob | null][] = [
       [plan('deal', { t: 'deal:start', count: 2, startSeat: 0 }), dealJob],

@@ -1440,6 +1440,88 @@ img.card-view {
   }
 }
 
+/* ---------- 牌桌：我的余额（筹码叠 + 数字，D-038） ---------- */
+
+/**
+ * 底牌与余额并排。余额从座位格子搬到这里来有两个理由：竖屏满桌那一格只有 104×56，
+ * 七位数是被裁掉的（D-029 那轮报回来的）；更要紧的是我读自己余额时的视线本来就在
+ * 自己两张牌上，同一数额在屏幕上出现两次反而要多对一次眼。
+ */
+.hole-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.chip-stack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chip-stack__pile {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.chip-stack__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* 一摞：每枚只露出上沿，所以负边距压掉大部分高度。从下往上码，最后那一枚在最上面 */
+.chip-stack__chip {
+  width: 26px;
+  height: auto;
+}
+
+.chip-stack__chip + .chip-stack__chip {
+  margin-top: -19px;
+}
+
+.chip-stack__more {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-stack__amount {
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--primary-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767px) {
+  .chip-stack__chip {
+    width: 22px;
+  }
+
+  .chip-stack__chip + .chip-stack__chip {
+    margin-top: -16px;
+  }
+}
+
+/* 手机横屏那一档整屏只有 190~290px 高，底牌已经是 40×56，筹码再高就顶到操作面板 */
+@media (max-height: 480px) {
+  .chip-stack__chip {
+    width: 18px;
+  }
+
+  .chip-stack__chip + .chip-stack__chip {
+    margin-top: -13px;
+  }
+
+  .chip-stack__amount {
+    font-size: 13px;
+  }
+}
+
 .pot-line {
   display: flex;
   flex-wrap: wrap;

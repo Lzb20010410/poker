@@ -227,25 +227,30 @@ describe('AnimQueue · 跳过与清空', () => {
     expect(b.started()).toBe(0);
   });
 
-  it('积压超过 5 个：直接清空渲染终态，而不是把一屏幕动画排到明天', () => {
-    const tasks = [1, 2, 3, 4, 5, 6].map((id) => fakeTask(id));
+  /**
+   * 边界刻意写死数字、不用 `ANIM_BACKLOG_LIMIT` 去推：这条用例的作用是**逼下一个改数的人**
+   * 回来回答「12 段排在屏幕上是多少秒」。为什么会有这条上限记在 DECISIONS.md D-035，
+   * 为什么是 12 记在 D-036，出口是页面上那颗「跳过动画」——积压期间它一直可点。
+   */
+  it('积压超过 12 段：直接清空渲染终态，而不是把一屏幕动画排到明天', () => {
+    const tasks = Array.from({ length: 13 }, (_unused, index) => fakeTask(index + 1));
     for (const item of tasks) queue.push(item.task);
 
-    // 前 5 个（含正在播的那个）被允许留下，第 6 个一来就整体作废
+    // 前 12 个（含正在播的那个）被允许留下，第 13 个一来就整体作废
     expect(queue.state().blocked).toBe(false);
     expect(queue.state().pending).toHaveLength(0);
     expect(queue.state().active).toBeNull();
     expect(tasks[0]?.cancels()).toBe(1);
-    expect(tasks[5]?.started()).toBe(0);
-    expect(tasks[5]?.settled()).toBe(1);
+    expect(tasks[12]?.started()).toBe(0);
+    expect(tasks[12]?.settled()).toBe(1);
   });
 
-  it('正好 5 个不算积压，照旧排队播放', () => {
-    const tasks = [1, 2, 3, 4, 5].map((id) => fakeTask(id));
+  it('正好 12 段不算积压，照旧排队播放', () => {
+    const tasks = Array.from({ length: 12 }, (_unused, index) => fakeTask(index + 1));
     for (const item of tasks) queue.push(item.task);
 
     expect(queue.state().blocked).toBe(true);
-    expect(queue.state().pending).toHaveLength(4);
+    expect(queue.state().pending).toHaveLength(11);
   });
 
   it('flush 是「重连后直接渲染终态」那条路：不播、但一律 settle', () => {

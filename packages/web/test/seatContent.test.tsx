@@ -144,13 +144,18 @@ describe('座位 · 昵称与筹码', () => {
   it('筹码千分位：七位数带逗号，整千也带逗号', () => {
     render(stage(snapshotWith()));
     expect(chipsText(TRUNCATED)).toBe('1,234,567');
-    expect(chipsText('我')).toBe('1,000');
+    /*
+     * 我那一格没有筹码行了（D-038）：同一数额在屏幕上出现两次，而窄屏那一格还把它裁掉。
+     * 那一份数字搬到底牌区，页面级的断言在 `table.test.tsx`「我的筹码叠在底牌区」。
+     */
+    expect(seatOf('我').querySelector('.seat__chips')).toBeNull();
   });
 
   it('筹码数变化是一格一格滚过去的，而且每一帧都是合法千分位', async () => {
     const first = snapshotWith();
     const { rerender } = render(stage(first));
-    const node = screen.getByText('1,000');
+    // 挂别人那一格：我那一份现在在底牌区（D-038），而这一条测的是 `ChipCount` 本身
+    const node = screen.getByText('1,234,567');
     const frames: string[] = [];
     const observer = new MutationObserver(() => {
       frames.push(node.textContent ?? '');
@@ -158,13 +163,13 @@ describe('座位 · 昵称与筹码', () => {
     observer.observe(node, { childList: true, characterData: true, subtree: true });
 
     rerender(
-      stage({ ...first, players: first.players.map((p) => (p.isSelf ? { ...p, chips: 4500 } : p)) }),
+      stage({ ...first, players: first.players.map((p) => (p.isSelf ? p : { ...p, chips: 1229567 })) }),
     );
 
-    await waitFor(() => expect(node.textContent).toBe('4,500'), { timeout: 3000 });
+    await waitFor(() => expect(node.textContent).toBe('1,229,567'), { timeout: 3000 });
     observer.disconnect();
-    // 滚动的证据 = 中间确实停在过别的数。只断言「最后等于 4,500」的话，瞬变也能过
-    expect(frames.some((frame) => frame !== '1,000' && frame !== '4,500')).toBe(true);
+    // 滚动的证据 = 中间确实停在过别的数。只断言「最后等于 1,229,567」的话，瞬变也能过
+    expect(frames.some((frame) => frame !== '1,234,567' && frame !== '1,229,567')).toBe(true);
     for (const frame of frames) expect(frame).toMatch(/^\d{1,3}(,\d{3})*$/);
   });
 });

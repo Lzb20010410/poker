@@ -14,7 +14,7 @@
  * 假 client 只提供快照和记录发送，不会自己算规则（见 `test/fakeClient.ts`）。
  */
 
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -28,6 +28,7 @@ import { FALLBACK_STAGE, layoutTable } from '../src/table/layout';
 import { TablePage } from '../src/table/TablePage';
 import {
   createFakeClient,
+  FakeMatchMakeError,
   fakePlayer,
   fakeSnapshot,
   FULL_LEGAL,
@@ -131,6 +132,30 @@ describe('牌桌 · 进房与基本呈现', () => {
     renderTable(fake);
     expect(screen.queryByRole('button', { name: /弃牌/ })).not.toBeInTheDocument();
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+
+  /**
+   * M4.1 的验收项：「服务端重启后前端显示"房间已失效"并引导回大厅，不白屏不卡死」。
+   * 522 + `has been disposed.` 是探针实测到的服务端重启/房间解散形状（见 `net/client.ts` 的 `deadTokenReason`）。
+   */
+  it('这一桌确定没了时说「已失效」并给一条回大厅的路', async () => {
+    seedProfile();
+    const fake = createFakeClient({ joinFailure: new FakeMatchMakeError(522, 'room "K7QM3D" has been disposed.') });
+    renderTable(fake);
+    expect(await screen.findByRole('heading', { name: `牌桌 ${CODE} 已失效` })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '回大厅' })).toHaveAttribute('href', '/');
+  });
+
+  /**
+   * 反向那条同样要紧：连不上服务端时那一桌**可能还在**，说「已失效」会把人赶去重开一桌。
+   * 断言的是「没有那句话」，所以它不是上一句的复读——把 `roomIsGone` 判据去掉（任何错误都算失效）这句就红。
+   */
+  it('只是连不上服务端时不说失效，也不劝人回大厅重开', async () => {
+    seedProfile();
+    const fake = createFakeClient({ joinFailure: new TypeError('Failed to fetch') });
+    renderTable(fake);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.queryByText(/已失效/)).not.toBeInTheDocument();
   });
 
   it('空座位按 config.maxPlayers 补齐，房主能看见还差几个位子', async () => {
@@ -366,6 +391,52 @@ describe('牌桌 · 底牌隐私', () => {
     const room = await openTable();
     myTurn(room);
     expect(within(screen.getByRole('region', { name: '我的底牌' })).getByText('还没拿到你的底牌')).toBeInTheDocument();
+  });
+});
+
+/**
+ * 我手上的筹码摆在底牌区，不摆在座位上（D-038）。
+ *
+ * 为什么要挪：竖屏满桌时座位框只有 104×56，「1,234,567」这种数字在那一格里是被
+ * `overflow: hidden` 裁掉的；而我真正要盯的那一份数字，视线路径在底牌旁边。
+ * 挪过来之后同一数额只出现一次——留在座位上会变成两处读数。
+ */
+describe('牌桌 · 我的筹码叠在底牌区', () => {
+  it('按面额码成几枚，数字只在这一格出现', async () => {
+    const room = await openTable();
+    patch(room, { mySeat: 0, players: [{ ...me, chips: 1600 }, other] });
+    const region = screen.getByRole('region', { name: '我的底牌' });
+    const pile = region.querySelector('.chip-stack__pile');
+    // 1,600 = 1000 + 500 + 100，三种面额各一枚
+    expect(pile, '底牌区里该有一叠筹码').not.toBeNull();
+    expect(pile?.querySelectorAll('img')).toHaveLength(3);
+    // 数字是滚过去的（`ChipCount`），所以从 2,000 走到 1,600 要等它落位
+    await waitFor(() => expect(within(region).getByText('1,600')).toBeInTheDocument());
+    expect(seatRow(TEST_PROFILE.nickname).querySelector('.seat__chips')).toBeNull();
+  });
+
+  it('同一面额画不满时挂 ×N：省的是节点，不是「有多少」', async () => {
+    const room = await openTable();
+    patch(room, { mySeat: 0, players: [{ ...me, chips: 12000 }, other] });
+    const region = screen.getByRole('region', { name: '我的底牌' });
+    expect(region.querySelectorAll('.chip-stack__pile img')).toHaveLength(5);
+    expect(region.querySelector('.chip-stack__more')?.textContent).toBe('×12');
+  });
+
+  it('零筹码时不摆空叠，但「0」还得看得见：那是被清空的余额，不是没有这回事', async () => {
+    const room = await openTable();
+    patch(room, { phase: 'HAND_END', mySeat: 0, players: [{ ...me, chips: 0 }, other] });
+    const region = screen.getByRole('region', { name: '我的底牌' });
+    expect(region.querySelector('.chip-stack')).not.toBeNull();
+    expect(region.querySelector('.chip-stack__pile')).toBeNull();
+    await waitFor(() => expect(within(region).getByText('0')).toBeInTheDocument());
+  });
+
+  it('还没入座时没有「我的筹码」这回事（旁观者看到的筹码归座位那一格）', async () => {
+    const room = await openTable();
+    patch(room, { mySeat: null, players: [{ ...me, seatIndex: null, chips: 1600 }, other] });
+    const region = screen.getByRole('region', { name: '我的底牌' });
+    expect(region.querySelector('.chip-stack')).toBeNull();
   });
 });
 

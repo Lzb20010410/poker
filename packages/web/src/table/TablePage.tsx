@@ -44,6 +44,7 @@ import { useRoom } from '../state/RoomContext';
 import { ActionPanel } from './components/ActionPanel';
 import { AnimLayer } from './components/AnimLayer';
 import { CardRow } from './components/CardView';
+import { ChipStack } from './components/ChipStack';
 import { EmoteBar } from './components/EmoteBar';
 import { HostPanel } from './components/HostPanel';
 import { ShowdownPanel } from './components/ShowdownPanel';
@@ -66,7 +67,7 @@ const NOTHING_LEGAL: LegalActionsView = {
 export function TablePage(): ReactNode {
   const params = useParams();
   const { profile } = useProfile();
-  const { status, snapshot, link, joinRoom, send } = useRoom();
+  const { status, snapshot, link, failure, joinRoom, send } = useRoom();
 
   const code = normalizePairingCode(params['code'] ?? '');
   const codeIsValid = isValidPairingCode(code);
@@ -106,6 +107,26 @@ export function TablePage(): ReactNode {
     );
   }
 
+  /**
+   * 这一桌**确定**没了（服务端重启、牌局解散、进房链接过期）：再怎么等也不会连上，
+   * 所以把话说死并给一条回大厅的路 —— M4.1 的验收项。
+   * 「连不上服务端」不在这里：那一桌可能还好好的，说失效会把人赶去重开一桌。
+   */
+  const roomIsGone = failure !== null && (failure.kind === 'room-not-found' || failure.kind === 'link-expired');
+  if (roomIsGone) {
+    return (
+      <section className="card card--accent">
+        <h2 className="card__title">牌桌 {code} 已失效</h2>
+        <p className="empty">{failure.hint}</p>
+        <div className="btn-row">
+          <Link className="btn btn--primary" to="/">
+            回大厅
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
   if (status !== 'connected' || snapshot === null || snapshot.code !== code) {
     return (
       <section className="card card--accent">
@@ -128,6 +149,8 @@ export function TablePage(): ReactNode {
    */
   const canAct = snapshot.isMyTurn && !offline && !snapshot.actionPending && !anim.blocked;
   const fast = anim.speed !== ANIM_SPEED_NORMAL;
+  /** 坐在位子上才有「我的余额」：旁观 / 还没入座时这一份是 null，底牌区不摆筹码叠 */
+  const myChips = snapshot.mySeat === null ? null : (self?.chips ?? null);
 
   const sendCommand = (command: C2S): void => {
     // 返回值不接：发不出去只有两种情况（断线、这一步还悬着），
@@ -195,22 +218,30 @@ export function TablePage(): ReactNode {
 
       <section className="card card--wide" role="region" aria-label="我的底牌">
         <h3 className="card__title">我的底牌</h3>
-        {snapshot.holeCards === null ? (
-          <p className="empty">还没拿到你的底牌</p>
-        ) : (
-          /*
-            `data-anim="hole-<我的座位号>"` 是发牌/亮牌动画的落点键，`data-self` 是
-            「只翻我自己那两张」的判据（SPEC §3.2）。旁观时（`mySeat` 为 null）两个都不写：
-            这一条不属于任何座位，动画找不到它才对。
-          */
-          <div
-            className="hole-strip"
-            data-anim={snapshot.mySeat === null ? undefined : `hole-${snapshot.mySeat}`}
-            data-self={snapshot.mySeat === null ? undefined : ''}
-          >
-            <CardRow cards={snapshot.holeCards} />
-          </div>
-        )}
+        <div className="hole-area">
+          {snapshot.holeCards === null ? (
+            <p className="empty">还没拿到你的底牌</p>
+          ) : (
+            /*
+              `data-anim="hole-<我的座位号>"` 是发牌/亮牌动画的落点键，`data-self` 是
+              「只翻我自己那两张」的判据（SPEC §3.2）。旁观时（`mySeat` 为 null）两个都不写：
+              这一条不属于任何座位，动画找不到它才对。
+            */
+            <div
+              className="hole-strip"
+              data-anim={snapshot.mySeat === null ? undefined : `hole-${snapshot.mySeat}`}
+              data-self={snapshot.mySeat === null ? undefined : ''}
+            >
+              <CardRow cards={snapshot.holeCards} />
+            </div>
+          )}
+          {/*
+            余额摆在牌旁边而不是座位里（D-038）。这一格必须在 `.hole-strip` **外面**：
+            发牌动画遮 `hole-N` 时连它里面的 `.card-view` 一起遮，筹码跟着隐身就成了
+            「钱也不见了」。没入座时没有「我的余额」这回事，旁观者那一格是空的。
+          */}
+          {myChips !== null && <ChipStack value={myChips} />}
+        </div>
       </section>
 
       <section className="card card--wide">

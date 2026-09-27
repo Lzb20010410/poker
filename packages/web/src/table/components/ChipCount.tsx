@@ -30,9 +30,14 @@ const ROLL_SECONDS = 0.45;
 
 export interface ChipCountProps {
   readonly value: number;
+  /**
+   * 样式类名。默认是座位那一档；底牌区的筹码叠（D-038）复用同一个滚动数字，
+   * 但要的是它自己的字号与位置，所以类名给出去而不是再抄一份组件。
+   */
+  readonly className?: string;
 }
 
-export function ChipCount({ value }: ChipCountProps): ReactNode {
+export function ChipCount({ value, className = 'seat__chips' }: ChipCountProps): ReactNode {
   const nodeRef = useRef<HTMLSpanElement | null>(null);
   /** 此刻屏幕上那个数。tween 每一帧都写回这里，所以中途换目标是从**当前显示值**接着走 */
   const shownRef = useRef(value);
@@ -65,5 +70,5 @@ export function ChipCount({ value }: ChipCountProps): ReactNode {
     };
   }, [value]);
 
-  return <span className="seat__chips" ref={nodeRef} />;
+  return <span className={className} ref={nodeRef} />;
 }

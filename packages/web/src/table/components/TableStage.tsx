@@ -65,7 +65,14 @@ export function TableStage({ snapshot, disabled, seatEmotes, onSit, onStand, onR
 
   return (
     <div className="felt-stage" ref={ref}>
-      <img className="felt-stage__felt" src={feltUri} alt="牌桌桌面" style={boxStyle(layout.felt)} />
+      {/* `felt` 这个键是给动画量位置用的，不是拿来遮的：牌堆被挤掉时发牌从这一格算起飞点 */}
+      <img
+        className="felt-stage__felt"
+        data-anim="felt"
+        src={feltUri}
+        alt="牌桌桌面"
+        style={boxStyle(layout.felt)}
+      />
 
       {/* 挤到连一块牌背都放不下时几何给 null：压在座位上比没有牌堆更糟 */}
       {layout.deck !== null && (
