@@ -502,6 +502,27 @@ M4.3 要把 server 和 web 装进两个容器。开工前有一件已经记在�
 - nginx 两份配置的语法：本机无 nginx，`docker run --rm nginx:1.27-alpine nginx -t` 也要 daemon。**逐行读过，未被机器验证。**
 - HTTPS / WSS / 手机 4G 三条本来就归他做（要域名、要公网机器）。
 
+**同日追加 · daemon 起来之后，上面那段"没验到的"有三条被实测推翻**
+
+他 2026-09-27 晚把 Docker Desktop 打开了，于是同一晚就能跑真构建。结果里**三条是我白天写账本时判断错的**，按新旧对照记下来，因为这三条的错误形态都"看起来像代码写错了"：
+
+| 白天写的 | 实测 |
+|---|---|
+| 「`docker compose up` 我没跑，`pnpm install --frozen-lockfile` 在容器里通不通、`NODE_ENV=production` 下 `tsx` 还认不认，都还没见过」 | **通了**：`docker compose build` 退出 0，`poker-room-server` / `poker-room-web` 两个镜像都建成；容器里 `pnpm --filter @poker-room/server start` 真起了进程，**从容器内部 `fetch('/health')` 拿到 200 + `{"ok":true,…,"uptimeSec":5}`**，`tsx` 在 production 下正常工作；启动那几行 JSON 落在 stdout（容器里 15 行日志、`"level":"info"` 在内）。镜像里 `id -u` = 1000，`USER node` 那条也成立 |
+| README 写「首次构建约 2-3 分钟」 | **量级错**：冷缓存那一次单是 `pnpm install --frozen-lockfile` 就 **19 分 29 秒**（解析并下载 442 个包）。有缓存的第二次 `docker compose build` 实测 **3.1 秒** 全部命中。README 已改成这两个数，并写明"首次构建的时间几乎全在下载依赖，不在编译"（`vite build` 只花 1.63s）。**未归因的部分要如实说**：442 个包在 t≈82s 就已 `added 441`，而"hard linked from store"那行要到 t=1169s 才打出来，中间 **18 分钟没有任何输出**——是网络尾部还是 Docker Desktop 那块虚拟盘的链接慢，我没分离出来，不猜 |
+| 我在验收报告里说过「JSON 日志 M4.1 就落了」 | **错**，`logging.ts` 是 M4.3 这批新建的（账本里写的是对的，错的是我那句话）。顺手把这条抓回来，是因为它还牵着一句判断：M4.1 那轮我并没有为进程装配过日志 |
+| 探测容器健康时我顺手用了 `wget` | `sh: 1: wget: not found` —— **`node:24-bookworm-slim` 里就没有 wget**（当时我在 server 镜像里探的健康，用错了工具）。这反而是**给选型补了一条实证**：`Dockerfile.server` 的 HEALTHCHECK 走 `node -e "fetch(...)"` 是对的（Node 24 自带 fetch），而 `Dockerfile.web` 那条走 wget 也**成立**（实测 `nginx:1.27-alpine` 里有 `/usr/bin/wget`，BusyBox 版，所以 `--version` 都不认）。README 排错表里那句 `docker compose exec web wget -qO- http://server:2567/health` 因此不是假话——但它是"在 web 容器里问 server"，两个镜像里谁有什么工具这件事，不实测就会写成 guess |
+| 同源门比 `$scheme://$http_host` 就够用 | **在"前面还有一层终结 TLS 的代理"下会把整局棋挡在门外**：`$scheme` 是 nginx 自己这跳的 scheme，TLS 若在 Cloudflare / CDN / 另一台 nginx 上终结，这里就是 `http`，而浏览器带的 `Origin` 是 `https://同一个域名` → 不相等 → 403，且 `/matchmake` 与 WS 握手一起被挡（表现是"页面能打开、进房一直转圈"）。VPS 直连形态（TLS 终结在 `https.conf` 这个 server 块里）不犯。现在两份 conf **故意不再是一模一样的两份拷贝**：`default.conf`（只听 80）改成「有 `X-Forwarded-Proto` 就按它判 scheme」，`https.conf`（TLS 在本层终结）**继续只信 `$scheme`** —— 那里再信一个客户端可自定的头，等于让任何人发一句 `X-Forwarded-Proto: http` 就能把全站真人挡成 403。这个不对称写在两份文件的注释里。 |
+
+**还有一条属于"预期行为，但长得像 bug"**：单独 `docker run --rm --entrypoint nginx poker-room-web -t` **必然失败**——`nginx: [emerg] host not found in upstream "server"`，因为 `proxy_pass http://server:2567/` 里的 `server` 是 compose 服务名，不在那个网络上就解析不出来。要拿语法证据得先造一个能让 `server` 解析的临时网络：实测在那种网络上拿到的是
+**`nginx: the configuration file /etc/nginx/nginx.conf syntax is ok` / `… test is successful`，EXIT=0**
+（挂载方式是把 `default.conf` 覆盖到容器里的 `/etc/nginx/conf.d/default.conf`，所以 nginx 报的是它自己的顶层文件）。
+临时容器与临时网络用完已删干净。
+
+**这一轮仍没验到的**：`docker compose up` 的完整对局（nginx 那一跳的转发、`/ws` 真升级成 WS、容器间 DNS 在默认网络上）、`https.conf` 的 `nginx -t`（要真证书，本机 openssl CLI 在两个镜像里都没有）、**README 里那条 `docker compose run --rm certbot certonly …` 的完整命令形状**——我试了，`certbot/certbot:latest` 在这台国内网络的开发机上拉了七八分钟没下来，我手动停了。能确认的只有一件事：**compose 认这个服务**（它把项目网络建出来了，说明挂在 `profiles: [tls]` 下的服务被 `run` 解析到了，不需要额外 `--profile`；不过 README 仍把 `--profile tls` 作为备选取舍写在那儿，因为我的 compose 版本不是他的）。以及只有他的环境能做的 HTTPS / 手机 4G / 真浏览器 101 那三条。
+
+**这一轮（同日追加）的改动面**：`deploy/nginx/default.conf`（同源段 +12 行注释 + 那三行 `$proto`）、`deploy/nginx/https.conf`（纯注释，把"两份拷贝"改成"有意的不对称"并写明理由）、`README.md`（部署新增「第 0 步 · 选地域」含备案与安全组、构建耗时改成实测、镜像源那段、certbot 的 `--profile` 备注、排错表两行）、`PROGRESS.md`（实测证据表补四行 + 一处被推翻的自查）。**零代码文件、零用例增减：1580 条仍是 1580 条**——收尾在这棵树上重跑了串行 `pnpm verify`，**EXIT=0 / 守卫 13 项**（日志 `.superpowers/verify-final.log`）。
+
 **影响**
 - 新增：`packages/server/src/logging.ts`、`packages/server/test/logging.test.ts`(9)、`packages/server/test/routes.test.ts`(10)、`.dockerignore`、`Dockerfile.server`、`Dockerfile.web`、`docker-compose.yml`、`deploy/nginx/default.conf`、`deploy/nginx/https.conf`、`.env.example`。
 - 改动：`main.ts`（重写：装配 logger、启动/失败各一行 JSON、`start` 口径变成 tsx）、`index.ts`（去掉启动 `logger.info`、`startServer(port)` 必填、`FALLBACK_PORT` 那句"vite proxy 指向这里"的过期注释改正）、`routes.ts`（闸 + 被实测推翻的文档串改正）、`package.json`（`start` → `tsx src/main.ts`，`tsx` 升为 dependency，`pnpm-lock.yaml` 已同步）、`serverUrl.ts` + `vite.config.ts` + `test/serverUrl.test.ts`（同源前缀，上一轮）、`README.md`（新增「部署」「谁能连进来」「上 HTTPS」「排错」）。
